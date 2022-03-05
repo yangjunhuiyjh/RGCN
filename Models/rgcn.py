@@ -8,6 +8,7 @@ from torch_geometric.datasets import TUDataset
 '''
 TODO: 
 > Set Initialisation Scheme
+> Problem Specific Normalisation Scheme
 > Test!
 '''
 class RGCNLayer(MessagePassing):
@@ -61,13 +62,14 @@ class RGCNLayer(MessagePassing):
             masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
             row, col = masked_edge_index
             deg =  degree(col, x.size(0))
-            norm = deg[row]
+            norm = 1/deg[row]
             out+= self.propagate(masked_edge_index,x=x,weight_r=e,norm=norm,prop_type=self.prop_type)
         self_edge_index = tensor([[i,i] for i in range(x.size(0))],dtype=int).T
         norm = ones(x.size(0))
         out+= self.propagate(self_edge_index,x=x,weight_r=self.self_connection,norm=norm,prop_type=None)
         out = self.activation(out)
         return out
+
 if __name__ == '__main__':
     # print(RGCNLayer(10,10,100,num_bases=4))
     # print(RGCNConv(10,10,100,num_bases=4))
