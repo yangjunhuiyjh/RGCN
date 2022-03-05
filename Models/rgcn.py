@@ -1,4 +1,3 @@
-from modulefinder import Module
 from torch import Tensor, relu, cat, randn, stack, tensor, where, zeros, ones
 from torch.nn import ModuleList, Linear, Parameter, ParameterList
 from torch_geometric.nn import MessagePassing
@@ -27,19 +26,22 @@ class RGCNLayer(MessagePassing):
         if num_blocks is not None: 
             assert(in_channels%num_blocks==0 and out_channels%num_blocks==0)      
             self.weights = ModuleList([ModuleList([Linear(in_channels//num_blocks,out_channels//num_blocks,False) for _ in range(num_blocks)]) for _ in range(num_relations)])
+            self.prop_type='block'
         elif num_bases is not None:
             self.basis_vectors = ModuleList([Linear(in_channels,out_channels,False) for _ in range(num_bases)])
             self.weights = ParameterList([Parameter(randn(num_bases)) for _ in range(num_relations)])
+            self.prop_type='basis'
         else:
             self.weights = ModuleList([Linear(in_channels,out_channels,bias=False) for i in range(num_relations)])
+            self.prop_type=None
         self.self_connection = Linear(in_channels,out_channels,False)
 
-    def message(self,x_j,weight_r,norm):
-        if self.num_blocks is not None:
-            norm.view(-1,1) * cat([e(x_j[i*self.num_blocks:(i+1)*self.num_blocks]) for i,e in enumerate(weight_r)])
-        elif self.num_bases is not None:
-            norm.view(-1,1) * self.weights @ stack([bv(x_j) for bv in self.basis_vectors])
-        else:    
+    def message(self,x_j,weight_r,norm,prop_type):
+        if prop_type=='block':
+            return norm.view(-1,1) * cat([e(x_j[i*self.num_blocks:(i+1)*self.num_blocks]) for i,e in enumerate(weight_r)])
+        elif prop_type=='basis':
+            return norm.view(-1,1) * (stack([bv(x_j) for bv in self.basis_vectors],-1) @ weight_r) 
+        else:
             return norm.view(-1,1) * weight_r(x_j)
 
     def forward(self,x: Tensor, edge_index, edge_attributes):
@@ -49,11 +51,10 @@ class RGCNLayer(MessagePassing):
             row, col = masked_edge_index
             deg =  degree(col, x.size(0))
             norm = deg[row]
-            print(norm)
-            out+= self.propagate(masked_edge_index,x=x,weight_r=e,norm=norm)
+            out+= self.propagate(masked_edge_index,x=x,weight_r=e,norm=norm,prop_type=self.prop_type)
         self_edge_index = tensor([[i,i] for i in range(x.size(0))],dtype=int).T
         norm = ones(x.size(0))
-        out+= self.propagate(self_edge_index,x=x,weight_r=self.self_connection,norm=norm)
+        out+= self.propagate(self_edge_index,x=x,weight_r=self.self_connection,norm=norm,prop_type=None)
         out = relu(out)
         return out
 if __name__ == '__main__':
@@ -61,6 +62,6 @@ if __name__ == '__main__':
     # print(RGCNConv(10,10,100,num_bases=4))
     ds = TUDataset('/tmp/MUTAG',name='MUTAG')
     print(ds[10])
-    model = RGCNLayer(7,3,4,num_bases=1)
+    model = RGCNLayer(7,3,4,num_blocks=1)
     data = ds[0]
     print(model(data.x,data.edge_index,data.edge_attr))
