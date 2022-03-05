@@ -5,6 +5,12 @@ from torch_geometric.utils import degree
 from torch_geometric.nn import RGCNConv
 from torch_geometric.datasets import TUDataset
 
+'''
+TODO: 
+> Improve Documentation
+> Add Module Equations
+> Set Initialisation Scheme
+'''
 class RGCNLayer(MessagePassing):
     def __init__(self,in_channels, out_channels, num_relations, num_blocks=None, num_bases=None):
         '''
@@ -15,7 +21,11 @@ class RGCNLayer(MessagePassing):
             num_blocks/num_bases if set to not equal None uses alternate scheme for computation
 
             thus if num_blocks, num_bases set to None ->
-                h_i = \sum_{i,r}() TODO
+                This uses equation (2) in the paper
+            if num_blocks set to k ->
+                This uses equation (3) in the paper
+            if num_bases set to k ->
+                This uses equation (4) in the paper
             Note that num_blocks must factor into both in_channels and out_channels
         '''
         super().__init__(aggr='add')
