@@ -7,18 +7,18 @@ from torch_geometric.datasets import TUDataset
 
 '''
 TODO: 
-> Improve Documentation
-> Add Module Equations
 > Set Initialisation Scheme
+> Test!
 '''
 class RGCNLayer(MessagePassing):
-    def __init__(self,in_channels, out_channels, num_relations, num_blocks=None, num_bases=None):
+    def __init__(self,in_channels, out_channels, num_relations, num_blocks=None, num_bases=None, activation=relu):
         '''
         Arguments:
             in_channels: dimension of input node feature space
             out_channels: dimension of output node feature space
             num_relations: the number of relations for each graph
             num_blocks/num_bases if set to not equal None uses alternate scheme for computation
+            activation: sets which activation function to use (from torch.functional)
 
             thus if num_blocks, num_bases set to None ->
                 This uses equation (2) in the paper
@@ -33,6 +33,7 @@ class RGCNLayer(MessagePassing):
         self.out_channels = out_channels
         self.num_blocks = num_blocks
         self.num_bases = num_bases
+        self.activation = activation
         if num_blocks is not None: 
             assert(in_channels%num_blocks==0 and out_channels%num_blocks==0)      
             self.weights = ModuleList([ModuleList([Linear(in_channels//num_blocks,out_channels//num_blocks,False) for _ in range(num_blocks)]) for _ in range(num_relations)])
@@ -42,7 +43,7 @@ class RGCNLayer(MessagePassing):
             self.weights = ParameterList([Parameter(randn(num_bases)) for _ in range(num_relations)])
             self.prop_type='basis'
         else:
-            self.weights = ModuleList([Linear(in_channels,out_channels,bias=False) for i in range(num_relations)])
+            self.weights = ModuleList([Linear(in_channels,out_channels,bias=False) for _ in range(num_relations)])
             self.prop_type=None
         self.self_connection = Linear(in_channels,out_channels,False)
 
@@ -65,7 +66,7 @@ class RGCNLayer(MessagePassing):
         self_edge_index = tensor([[i,i] for i in range(x.size(0))],dtype=int).T
         norm = ones(x.size(0))
         out+= self.propagate(self_edge_index,x=x,weight_r=self.self_connection,norm=norm,prop_type=None)
-        out = relu(out)
+        out = self.activation(out)
         return out
 if __name__ == '__main__':
     # print(RGCNLayer(10,10,100,num_bases=4))
