@@ -13,7 +13,7 @@ def get_dataset(name:str):
         return Entities("Datasets/mutag","MUTAG")[0]
     elif name == 'fb15k':
         ds = FB15kDataset(raw_dir="Datasets/fb15k")
-        ds_networkx = to_networkx(ds[0])
+        ds_networkx = to_networkx(ds[0], node_attrs= ds[0].ndata.keys(), edge_attrs=ds[0].edata.keys())
         return from_networkx(ds_networkx)
     elif name == 'aifb':
         return Entities("Datasets/aifb","AIFB")[0]
