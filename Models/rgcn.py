@@ -1,4 +1,4 @@
-from torch import Tensor, relu, cat, randn, stack, tensor, where, zeros, ones
+from torch import Tensor, relu, cat, randn, stack, tensor, where, zeros, ones, add
 from torch.nn import ModuleList, Linear, Parameter, ParameterList
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import degree
@@ -8,17 +8,18 @@ from torch_geometric.datasets import TUDataset
 '''
 TODO: 
 > Set Initialisation Scheme
-> Problem Specific Normalisation Scheme
 > Test!
+> Add attention scheme
 '''
 class RGCNLayer(MessagePassing):
-    def __init__(self,in_channels, out_channels, num_relations, num_blocks=None, num_bases=None, activation=relu):
+    def __init__(self,in_channels, out_channels, num_relations, num_blocks=None, num_bases=None, norm_type='relation-degree',activation=relu):
         '''
         Arguments:
             in_channels: dimension of input node feature space
             out_channels: dimension of output node feature space
             num_relations: the number of relations for each graph
             num_blocks/num_bases if set to not equal None uses alternate scheme for computation
+            norm_type: str in {"relation-degree","non-relation-degree"}, which normalisation schema to use
             activation: sets which activation function to use (from torch.functional)
 
             thus if num_blocks, num_bases set to None ->
@@ -32,9 +33,11 @@ class RGCNLayer(MessagePassing):
         super().__init__(aggr='add')
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.num_relations = num_relations
         self.num_blocks = num_blocks
         self.num_bases = num_bases
         self.activation = activation
+        self.norm_type = norm_type
         if num_blocks is not None: 
             assert(in_channels%num_blocks==0 and out_channels%num_blocks==0)      
             self.weights = ModuleList([ModuleList([Linear(in_channels//num_blocks,out_channels//num_blocks,False) for _ in range(num_blocks)]) for _ in range(num_relations)])
@@ -60,9 +63,8 @@ class RGCNLayer(MessagePassing):
         out = zeros((x.size(0),self.out_channels))
         for r,e in enumerate(self.weights):
             masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
-            row, col = masked_edge_index
-            deg =  degree(col, x.size(0))
-            norm = 1/deg[row]
+            norm = self.compute_norm(edge_index,edge_attributes,r,x)
+            print(norm.size())
             out+= self.propagate(masked_edge_index,x=x,weight_r=e,norm=norm,prop_type=self.prop_type)
         self_edge_index = tensor([[i,i] for i in range(x.size(0))],dtype=int).T
         norm = ones(x.size(0))
@@ -70,11 +72,31 @@ class RGCNLayer(MessagePassing):
         out = self.activation(out)
         return out
 
+    def compute_norm(self,edge_index,edge_attributes,r,x):
+        if self.norm_type =='relation-degree':
+            masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
+            row, col = masked_edge_index
+            deg =  degree(col, x.size(0))
+            norm = 1/deg[row]
+        elif self.norm_type =='non-relation-degree':
+            deg = []
+            masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
+            r_row, _ = masked_edge_index
+            for r in range(self.num_relations):
+                masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
+                row, col = masked_edge_index
+                deg.append(degree(col, x.size(0)))
+            deg = stack(deg,0).sum(0)
+            norm = 1/deg[r_row]
+        else:
+            norm = None
+        return norm
+
 if __name__ == '__main__':
     # print(RGCNLayer(10,10,100,num_bases=4))
     # print(RGCNConv(10,10,100,num_bases=4))
     ds = TUDataset('/tmp/MUTAG',name='MUTAG')
-    print(ds[10])
-    model = RGCNLayer(7,3,4,num_blocks=1)
+    print([ds[i] for i in range(4)])
+    model = RGCNLayer(7,3,4,num_blocks=1,norm_type='non-relation-degree')
     data = ds[0]
     print(model(data.x,data.edge_index,data.edge_attr))
