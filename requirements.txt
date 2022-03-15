@@ -1,4 +1,5 @@
 torch
+dgl
 torch-scatter 
 torch-sparse 
 torch-cluster 
