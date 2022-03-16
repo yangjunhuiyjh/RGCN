@@ -1,6 +1,7 @@
-from torch import Tensor, relu, cat, randn, stack, tensor, where, zeros, ones, add
+from torch import Tensor, relu, cat, randn, stack, tensor, where, zeros, ones, exp, mul, nan_to_num
+from torch.nn import LeakyReLU
 from torch.nn import ModuleList, Linear, Parameter, ParameterList
-from torch_geometric.nn import MessagePassing
+from torch_geometric.nn import MessagePassing, GATv2Conv
 from torch_geometric.utils import degree
 from torch_geometric.nn import RGCNConv
 from torch_geometric.datasets import TUDataset
@@ -19,7 +20,7 @@ class RGCNLayer(MessagePassing):
             out_channels: dimension of output node feature space
             num_relations: the number of relations for each graph
             num_blocks/num_bases if set to not equal None uses alternate scheme for computation
-            norm_type: str in {"relation-degree","non-relation-degree"}, which normalisation schema to use
+            norm_type: str in {"relation-degree","non-relation-degree","attention"}, which normalisation schema to use
             activation: sets which activation function to use (from torch.functional)
 
             thus if num_blocks, num_bases set to None ->
@@ -38,6 +39,9 @@ class RGCNLayer(MessagePassing):
         self.num_bases = num_bases
         self.activation = activation
         self.norm_type = norm_type
+        if self.norm_type == 'attention':
+            self.leaky_relu = LeakyReLU()
+            self.attention_weights = ParameterList([Parameter(randn(2*out_channels)) for _ in range(num_relations)])
         if num_blocks is not None: 
             assert(in_channels%num_blocks==0 and out_channels%num_blocks==0)      
             self.weights = ModuleList([ModuleList([Linear(in_channels//num_blocks,out_channels//num_blocks,False) for _ in range(num_blocks)]) for _ in range(num_relations)])
@@ -51,21 +55,38 @@ class RGCNLayer(MessagePassing):
             self.prop_type=None
         self.self_connection = Linear(in_channels,out_channels,False)
 
-    def message(self,x_j,weight_r,norm,prop_type):
+    def partial_message(self,x_l,weight,prop_type):
         if prop_type=='block':
-            return norm.view(-1,1) * cat([e(x_j[i*self.num_blocks:(i+1)*self.num_blocks]) for i,e in enumerate(weight_r)])
+            message= cat([e(x_l[i*self.num_blocks:(i+1)*self.num_blocks]) for i,e in enumerate(weight)])
+            return message
         elif prop_type=='basis':
-            return norm.view(-1,1) * (stack([bv(x_j) for bv in self.basis_vectors],-1) @ weight_r) 
+            return (stack([bv(x_l) for bv in self.basis_vectors],-1) @ weight)
         else:
-            return norm.view(-1,1) * weight_r(x_j)
+            return weight(x_l)
+
+    def message(self,x_j,x_i,weight_r,norm,prop_type,index,attention=None):
+        if attention is None:
+            return norm.view(-1,1) * self.partial_message(x_j,weight_r,prop_type)
+        else:
+            message_j = self.partial_message(x_j,weight_r,prop_type)
+            message_i = self.partial_message(x_i,weight_r,prop_type)
+            a_ij_num = exp(self.leaky_relu(cat([message_i,message_j],dim=-1))@attention)
+            self.r_attention_total[index]+=a_ij_num
+            print(message_j.size(),a_ij_num.size(),mul(norm.view(-1,1),a_ij_num).view(-1,1).size(),norm.size())
+            return mul(norm,a_ij_num).view(-1,1) * message_j
 
     def forward(self,x: Tensor, edge_index, edge_attributes):
         out = zeros((x.size(0),self.out_channels))
         for r,e in enumerate(self.weights):
             masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
             norm = self.compute_norm(edge_index,edge_attributes,r,x)
-            print(norm.size())
-            out+= self.propagate(masked_edge_index,x=x,weight_r=e,norm=norm,prop_type=self.prop_type)
+            if self.norm_type == 'attention':
+                self.r_attention_total = zeros(x.size(0))
+                messages = self.propagate(masked_edge_index,x=x,weight_r=e,norm=norm,prop_type=self.prop_type,attention=self.attention_weights[r])
+                expanded_divisor = self.r_attention_total.unsqueeze(-1).expand_as(out)
+                out+=nan_to_num(messages/expanded_divisor)
+            else:
+                out+= self.propagate(masked_edge_index,x=x,weight_r=e,norm=norm,prop_type=self.prop_type)
         self_edge_index = tensor([[i,i] for i in range(x.size(0))],dtype=int).T
         norm = ones(x.size(0))
         out+= self.propagate(self_edge_index,x=x,weight_r=self.self_connection,norm=norm,prop_type=None)
@@ -88,8 +109,10 @@ class RGCNLayer(MessagePassing):
                 deg.append(degree(col, x.size(0)))
             deg = stack(deg,0).sum(0)
             norm = 1/deg[r_row]
-        else:
-            norm = None
+        elif self.norm_type =='attention':
+            masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
+            row, col = masked_edge_index
+            norm = ones(x.size(0))[row]
         return norm
 
 if __name__ == '__main__':
@@ -97,6 +120,6 @@ if __name__ == '__main__':
     # print(RGCNConv(10,10,100,num_bases=4))
     ds = TUDataset('/tmp/MUTAG',name='MUTAG')
     print([ds[i] for i in range(4)])
-    model = RGCNLayer(7,3,4,num_blocks=1,norm_type='non-relation-degree')
+    model = RGCNLayer(7,3,4,num_bases=3,norm_type='attention',activation=LeakyReLU())
     data = ds[0]
     print(model(data.x,data.edge_index,data.edge_attr))
