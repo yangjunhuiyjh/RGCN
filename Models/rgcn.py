@@ -97,7 +97,7 @@ class RGCNLayer(MessagePassing):
             masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
             row, col = masked_edge_index
             deg =  degree(col, x.size(0))
-            norm = 1/deg[row]
+            norm = nan_to_num(1/deg[row],nan=0.0,posinf=0.0,neginf=0.0)
         elif self.norm_type =='non-relation-degree':
             deg = []
             masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
