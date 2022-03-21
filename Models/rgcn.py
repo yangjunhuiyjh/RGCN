@@ -3,8 +3,8 @@ from torch.nn import LeakyReLU
 from torch.nn import ModuleList, Linear, Parameter, ParameterList
 from torch_geometric.nn import MessagePassing, GATv2Conv
 from torch_geometric.utils import degree
-from torch_geometric.nn import RGCNConv
 from torch_geometric.datasets import TUDataset
+from torch_geometric.loader import DataLoader
 
 '''
 TODO: 
@@ -72,7 +72,6 @@ class RGCNLayer(MessagePassing):
             message_i = self.partial_message(x_i,weight_r,prop_type)
             a_ij_num = exp(self.leaky_relu(cat([message_i,message_j],dim=-1))@attention)
             self.r_attention_total[index]+=a_ij_num
-            print(message_j.size(),a_ij_num.size(),mul(norm.view(-1,1),a_ij_num).view(-1,1).size(),norm.size())
             return mul(norm,a_ij_num).view(-1,1) * message_j
 
     def forward(self,x: Tensor, edge_index, edge_attributes):
@@ -121,5 +120,9 @@ if __name__ == '__main__':
     ds = TUDataset('/tmp/MUTAG',name='MUTAG')
     print([ds[i] for i in range(4)])
     model = RGCNLayer(7,3,4,num_bases=3,norm_type='attention',activation=LeakyReLU())
-    data = ds[0]
-    print(model(data.x,data.edge_index,data.edge_attr))
+    dl = DataLoader(ds,batch_size=5)
+    t =0
+    for data in dl:
+        if t == 0:
+            print(model(data.x,data.edge_index,data.edge_attr))
+            t=1
