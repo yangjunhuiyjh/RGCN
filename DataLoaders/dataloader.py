@@ -6,18 +6,20 @@ from torch_geometric.utils.convert import from_networkx
 
 def get_dataset(name:str):
     if name == 'fb15k237':
-        return RelLinkPredDataset("Datasets/fb15k237","FB15k-237")[0]
+        return RelLinkPredDataset("Datasets/fb15k237","FB15k-237")
     elif name == 'wn18':
-        return WordNet18("Datasets/wn18")[0]
+        return WordNet18("Datasets/wn18")
     elif name =="mutag":
-        return Entities("Datasets/mutag","MUTAG")[0]
+        return Entities("Datasets/mutag","MUTAG")
     elif name == 'fb15k':
         ds = FB15kDataset(raw_dir="Datasets/fb15k")
-        ds_networkx = to_networkx(ds[0], node_attrs= ds[0].ndata.keys(), edge_attrs=ds[0].edata.keys())
-        return from_networkx(ds_networkx)
+        items = [from_networkx(to_networkx(item, node_attrs= item.ndata.keys(), edge_attrs=item.edata.keys())) for item in ds]
+        # ds_networkx = to_networkx(ds, node_attrs= ds.ndata.keys(), edge_attrs=ds.edata.keys())
+        # return from_networkx(ds_networkx)
+        return items
     elif name == 'aifb':
-        return Entities("Datasets/aifb","AIFB")[0]
+        return Entities("Datasets/aifb","AIFB")
     elif name == 'bgs':
-        return Entities("Datasets/bgs","BGS")[0]
+        return Entities("Datasets/bgs","BGS")
     elif name == 'am':
-        return Entities("Datasets/am", "AM")[0]
+        return Entities("Datasets/am", "AM")
