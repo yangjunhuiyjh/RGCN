@@ -11,7 +11,7 @@ def parse_arguments():
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--model', type=str)
     parser.add_argument('--task', type=str)
-    parser.add_argument('--num_epoch', type=int, default=5, help='number of maximum epochs')
+    parser.add_argument('--num_epoch', type=int, default=100, help='number of maximum epochs')
     parser.add_argument('--batch_size', type=int, default=1, help='batchsize')
     parser.add_argument('--lr', type=float, default=1e-5, help='the learning rate used by the optimizer')
     parser.add_argument('--model_output_path', type=str, default='/data/model.ckpt',help='Where model is stored after training')
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     else:
         trainer = Trainer(logger=logger,log_every_n_steps=10,max_epochs=args.num_epoch,gpus=args.num_gpus,enable_checkpointing=False)
     if args.model =="rgcn" and args.task =="ec":
-        model = EntityClassificationRGCN(2,8285,16,4,90)
+        model = EntityClassificationRGCN(2,8285,16,4,90,num_bases=30)
     else:
         print("model not defined")
     print(model)
