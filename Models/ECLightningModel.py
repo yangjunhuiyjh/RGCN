@@ -1,4 +1,4 @@
-from torch import LongTensor, as_tensor, ones, long
+from torch import LongTensor, as_tensor, norm, ones, long
 from torch.nn.functional import one_hot
 from pytorch_lightning import LightningModule
 from torch.nn import ModuleList, CrossEntropyLoss
@@ -6,13 +6,14 @@ from torch import relu, softmax
 from torch.optim import Adam
 from Models.rgcn import RGCNLayer
 class EntityClassificationRGCN(LightningModule):
-    def __init__(self, num_layers, in_dim, hidden_dim, out_dim, num_relations, optimizer= Adam, lr=0.01,**kwargs):
+    def __init__(self, num_layers, in_dim, hidden_dim, out_dim, num_relations, l2lambda=0.01, optimizer= Adam, lr=0.01,**kwargs):
         super(EntityClassificationRGCN,self).__init__()
         self.num_relations = num_relations
         self.layers = ModuleList([RGCNLayer(in_dim,hidden_dim,num_relations,**kwargs)]+[RGCNLayer(hidden_dim,hidden_dim, num_relations,**kwargs) for _ in range(num_layers-2)]+[RGCNLayer(hidden_dim,out_dim, num_relations)])
         self.loss = CrossEntropyLoss(reduction='sum')
         self.optimizer = optimizer
         self.lr = lr
+        self.l2lambda = l2lambda
 
     def forward(self, x, edge_index, edge_attributes):
         for l in self.layers:
@@ -30,6 +31,9 @@ class EntityClassificationRGCN(LightningModule):
         #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         x = softmax(x[batch.train_idx],-1)
         loss = self.loss(x,y)
+        for name, param in self.layers[0].named_parameters():
+            print(name)
+            loss += norm(param) * self.l2lambda
         self.log("train_loss",loss.item())
         return loss
 
