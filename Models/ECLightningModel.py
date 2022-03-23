@@ -14,6 +14,7 @@ class EntityClassificationRGCN(LightningModule):
         self.optimizer = optimizer
         self.lr = lr
         self.l2lambda = l2lambda
+        self.save_hyperparameters()
 
     def forward(self, x, edge_index, edge_attributes):
         for l in self.layers:

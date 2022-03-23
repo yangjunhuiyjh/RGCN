@@ -15,7 +15,7 @@ def parse_arguments():
     parser.add_argument('--num_epoch', type=int, default=100, help='number of maximum epochs')
     parser.add_argument('--batch_size', type=int, default=1, help='batchsize')
     parser.add_argument('--lr', type=float, default=1e-5, help='the learning rate used by the optimizer')
-    parser.add_argument('--model_output_path', type=str, default='/data/model.ckpt',help='Where model is stored after training')
+    parser.add_argument('--model_output_path', type=str, default='trained_models/model.ckpt',help='Where model is stored after training')
     parser.add_argument('--debug', default=False,action='store_true', help='use small training set and disable logging for quickfire testing')
     parser.add_argument('--num_gpus', type=int, default=0,help='number of gpus to be used')
     return parser.parse_args()
@@ -42,3 +42,4 @@ if __name__ == '__main__':
     print(len(ds),ds,type(ds))
     dl = DataLoader(ds,args.batch_size)
     trainer.fit(model,dl)
+    trainer.save_checkpoint(args.model_output_path)

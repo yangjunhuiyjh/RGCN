@@ -24,11 +24,14 @@ class LinkPredictionRGCN(LightningModule):
         self.num_entities = num_entities
         self.lr = lr
         self.l2lambda = l2lambda
+        self.save_hyperparameters()
 
-    def forward(self, x, edge_index, edge_attributes):
+    def forward(self, edge_index, edge_types):
+        x = self.embedder
+        edge_attributes = one_hot(edge_types,num_classes=self.num_relations)
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
-        return softmax(x,-1)
+        return x
 
     def training_step(self, batch, batch_idx):
         print(batch)
@@ -41,18 +44,28 @@ class LinkPredictionRGCN(LightningModule):
         #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         loss = 0
         print("done with embedding")
-        for i in range(edge_attributes.size(1)):
-            for _ in range(self.omega):
-                edge = negative_sampling(edge_index,self.num_entities)
-                score = self.distmult(x[edge[0]],edge_attributes[edge],x[edge[1]])
-                loss += self.loss(score,0)
-            edge = edge_attributes[:,i]
-            score = self.distmult(x[edge[0]],edge_attributes[edge],x[edge[1]])
-            loss += self.loss(score,1)/(edge_attributes.size(1)*(1+self.omega))
+        for _ in range(self.omega):
+            edges = negative_sampling(edge_index,self.num_entities)
+            print("done sampling")
+            score = self.distmult(x[edges[0]],batch.edge_type,x[edges[1]]) ### Correct this
+            loss += self.loss(score,0)
+        print("done with neg samples")
+        edges = edge_attributes
+        score = self.distmult(x[edges[0]],edge_attributes[edges[0]],x[edges[1]])
+        loss += self.loss(score,1)/(edge_attributes.size(1)*(1+self.omega))
         for name, param in self.distmult.named_parameters(): ## L2 Loss
             loss += norm(param) * self.l2lambda
         self.log("train_loss",loss.item())
         return loss
+
+    def score(self, s, p, o, x):
+        '''
+        s: index of subject
+        p: index of relation
+        o: index of object
+        '''
+        score = self.distmult(x[s].unsqueeze(0),p.unsqueeze(0),x[o].unsqueeze(0))
+        return score
 
     def configure_optimizers(self):
         return self.optimizer(self.parameters(),lr=self.lr)
