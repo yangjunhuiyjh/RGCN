@@ -4,6 +4,7 @@ from DataLoaders.dataloader import get_dataset
 import argparse
 
 from Models.ECLightningModel import EntityClassificationRGCN
+from Models.LPLightningModel import LinkPredictionRGCN
 
 
 def parse_arguments():
@@ -32,6 +33,8 @@ if __name__ == '__main__':
         trainer = Trainer(logger=logger,log_every_n_steps=10,max_epochs=args.num_epoch,gpus=args.num_gpus,enable_checkpointing=False)
     if args.model =="rgcn" and args.task =="ec":
         model = EntityClassificationRGCN(2,8285,16,4,90,num_bases=30)
+    elif args.model =="rgcn" and args.task == "lp":
+        model = LinkPredictionRGCN(2,500,500,500,237,14951,num_blocks=100,norm_type='non-relation-degree')
     else:
         print("model not defined")
     print(model)
