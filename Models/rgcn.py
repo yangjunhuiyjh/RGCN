@@ -1,4 +1,4 @@
-from torch import Tensor, relu, cat, randn, stack, tensor, where, zeros, ones, exp, mul, nan_to_num
+from torch import FloatTensor, Tensor, relu, cat, randn, stack, tensor, where, zeros, ones, exp, mul, nan_to_num, block_diag
 from torch.nn import LeakyReLU
 from torch.nn import ModuleList, Linear, Parameter, ParameterList
 from torch_geometric.nn import MessagePassing, GATv2Conv
@@ -44,7 +44,8 @@ class RGCNLayer(MessagePassing):
             self.attention_weights = ParameterList([Parameter(randn(2*out_channels)) for _ in range(num_relations)])
         if num_blocks is not None: 
             assert(in_channels%num_blocks==0 and out_channels%num_blocks==0)      
-            self.weights = ModuleList([ModuleList([Linear(in_channels//num_blocks,out_channels//num_blocks,False) for _ in range(num_blocks)]) for _ in range(num_relations)])
+            self.weights = ParameterList([Parameter(block_diag(*[randn(in_channels//num_blocks,out_channels//num_blocks) for _ in range(num_blocks)])) for _ in range(num_relations)])
+            self.block_dim = in_channels//num_blocks
             self.prop_type='block'
         elif num_bases is not None:
             self.basis_vectors = ModuleList([Linear(in_channels,out_channels,False) for _ in range(num_bases)])
@@ -57,7 +58,8 @@ class RGCNLayer(MessagePassing):
 
     def partial_message(self,x_l,weight,prop_type):
         if prop_type=='block':
-            message= cat([e(x_l[i*self.num_blocks:(i+1)*self.num_blocks]) for i,e in enumerate(weight)])
+            # message= cat([e(x_l[:,i*self.block_dim:(i+1)*self.block_dim]) for i,e in enumerate(weight)],dim=-1)
+            message = x_l @ weight
             return message
         elif prop_type=='basis':
             return (stack([bv(x_l) for bv in self.basis_vectors],-1) @ weight)
@@ -107,7 +109,7 @@ class RGCNLayer(MessagePassing):
                 row, col = masked_edge_index
                 deg.append(degree(col, x.size(0)))
             deg = stack(deg,0).sum(0)
-            norm = 1/deg[r_row]
+            norm = nan_to_num(1/deg[r_row],nan=0.0,posinf=0.0,neginf=0.0)
         elif self.norm_type =='attention':
             masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
             row, col = masked_edge_index
