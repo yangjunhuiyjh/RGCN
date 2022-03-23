@@ -31,7 +31,7 @@ class EntityClassificationRGCN(LightningModule):
         #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         x = softmax(x[batch.train_idx],-1)
         loss = self.loss(x,y)
-        for param in self.layers[0].named_parameters(): ## L2 Loss
+        for name, param in self.layers[0].named_parameters(): ## L2 Loss
             loss += norm(param) * self.l2lambda
         self.log("train_loss",loss.item())
         return loss
