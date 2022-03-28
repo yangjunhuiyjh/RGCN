@@ -5,7 +5,7 @@ from torch_geometric.nn import MessagePassing, GATv2Conv
 from torch_geometric.utils import degree
 from torch_geometric.datasets import TUDataset
 from torch_geometric.loader import DataLoader
-
+from torch_geometric.nn.inits import glorot
 '''
 TODO: 
 > Set Initialisation Scheme
@@ -31,7 +31,7 @@ class RGCNLayer(MessagePassing):
                 This uses equation (4) in the paper
             Note that num_blocks must factor into both in_channels and out_channels
         '''
-        super().__init__(aggr='add')
+        super(RGCNLayer,self).__init__(aggr='add')
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.num_relations = num_relations
@@ -42,6 +42,7 @@ class RGCNLayer(MessagePassing):
         if self.norm_type == 'attention':
             self.leaky_relu = LeakyReLU()
             self.attention_weights = ParameterList([Parameter(randn(2*out_channels)) for _ in range(num_relations)])
+            # glorot(self.attention_weights)
         if num_blocks is not None: 
             assert(in_channels%num_blocks==0 and out_channels%num_blocks==0)      
             self.weights = ParameterList([Parameter(block_diag(*[randn(in_channels//num_blocks,out_channels//num_blocks) for _ in range(num_blocks)])) for _ in range(num_relations)])
@@ -49,12 +50,15 @@ class RGCNLayer(MessagePassing):
             self.prop_type='block'
         elif num_bases is not None:
             self.basis_vectors = ModuleList([Linear(in_channels,out_channels,False) for _ in range(num_bases)])
+            glorot(self.basis_vectors)
             self.weights = ParameterList([Parameter(randn(num_bases)) for _ in range(num_relations)])
             self.prop_type='basis'
         else:
-            self.weights = ModuleList([Linear(in_channels,out_channels,bias=False) for _ in range(num_relations)])
+            self.weights = ParameterList([Parameter(randn(in_channels,out_channels)) for _ in range(num_relations)])
             self.prop_type=None
-        self.self_connection = Linear(in_channels,out_channels,False)
+        self.self_connection = Parameter(randn(in_channels,out_channels))
+        glorot(self.weights)
+        glorot(self.self_connection)
 
     def partial_message(self,x_l,weight,prop_type):
         if prop_type=='block':
@@ -64,7 +68,7 @@ class RGCNLayer(MessagePassing):
         elif prop_type=='basis':
             return (stack([bv(x_l) for bv in self.basis_vectors],-1) @ weight)
         else:
-            return weight(x_l)
+            return x_l @ weight
 
     def message(self,x_j,x_i,weight_r,norm,prop_type,index,attention=None):
         if attention is None:
@@ -85,7 +89,7 @@ class RGCNLayer(MessagePassing):
                 self.r_attention_total = zeros(x.size(0))
                 messages = self.propagate(masked_edge_index,x=x,weight_r=e,norm=norm,prop_type=self.prop_type,attention=self.attention_weights[r])
                 expanded_divisor = self.r_attention_total.unsqueeze(-1).expand_as(out)
-                out+=nan_to_num(messages/expanded_divisor)
+                out+=nan_to_num(messages/expanded_divisor,nan=0.0,posinf=0.0,neginf=0.0)
             else:
                 out+= self.propagate(masked_edge_index,x=x,weight_r=e,norm=norm,prop_type=self.prop_type)
         self_edge_index = tensor([[i,i] for i in range(x.size(0))],dtype=int).T
@@ -110,7 +114,7 @@ class RGCNLayer(MessagePassing):
                 deg.append(degree(col, x.size(0)))
             deg = stack(deg,0).sum(0)
             norm = nan_to_num(1/deg[r_row],nan=0.0,posinf=0.0,neginf=0.0)
-        elif self.norm_type =='attention':
+        elif self.norm_type =='attention' or self.norm_type == None:
             masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
             row, col = masked_edge_index
             norm = ones(x.size(0))[row]
