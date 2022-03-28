@@ -17,7 +17,7 @@ if __name__=='__main__':
     num_nodes = ds[0].num_nodes
     results = []
     for i in range(1):
-        model, trainer = train_ec(None,dl,50,num_nodes,90,num_bases=None,l2param=0,norm_type=None)
+        model, trainer = train_ec(None,dl,50,num_nodes,90,num_bases=None,l2param=0,norm_type='relation-degree')
         results.append(trainer.test(model,dl))
     for result in results:
         print(result)

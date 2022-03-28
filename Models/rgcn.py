@@ -102,18 +102,21 @@ class RGCNLayer(MessagePassing):
         if self.norm_type =='relation-degree':
             masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
             row, col = masked_edge_index
-            deg =  degree(col, x.size(0))
+            deg =  degree(row, x.size(0))
             norm = nan_to_num(1/deg[row],nan=0.0,posinf=0.0,neginf=0.0)
         elif self.norm_type =='non-relation-degree':
-            deg = []
-            masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
-            r_row, _ = masked_edge_index
-            for r in range(self.num_relations):
-                masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
-                row, col = masked_edge_index
-                deg.append(degree(col, x.size(0)))
-            deg = stack(deg,0).sum(0)
-            norm = nan_to_num(1/deg[r_row],nan=0.0,posinf=0.0,neginf=0.0)
+            # deg = []
+            # masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
+            # r_row, _ = masked_edge_index
+            # for r in range(self.num_relations):
+            #     masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
+            #     row, col = masked_edge_index
+            #     deg.append(degree(col, x.size(0)))
+            # deg = stack(deg,0).sum(0)
+            # norm = nan_to_num(1/deg[r_row],nan=0.0,posinf=0.0,neginf=0.0)
+            row, col = edge_index
+            deg =  degree(row, x.size(0))
+            norm = nan_to_num(1/deg[row],nan=0.0,posinf=0.0,neginf=0.0)
         elif self.norm_type =='attention' or self.norm_type == None:
             masked_edge_index = edge_index.T[where(edge_attributes[:,r]>0)].T
             row, col = masked_edge_index
