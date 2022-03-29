@@ -37,7 +37,7 @@ class EntityClassificationRGCN(LightningModule):
         x = softmax(x[batch.train_idx],-1)
         loss = self.loss(x,y)
         for name, param in self.layers[0].named_parameters(): ## L2 Loss
-            loss += norm(param) * self.l2lambda * y.size(0)
+            loss += norm(param) * self.l2lambda
         self.log("train_loss",loss.item())
         ypred = max(x,-1).indices
         self.train_accuracy(ypred,y)
