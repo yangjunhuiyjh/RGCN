@@ -12,7 +12,7 @@ from DataLoaders.dataloader import get_dataset
 from torch_geometric.loader import DataLoader
 from pytorch_lightning.loggers import NeptuneLogger
 if __name__=='__main__':
-    ds = get_dataset("bcs")
+    ds = get_dataset("bgs")
     dl = DataLoader(ds)
     num_nodes = ds[0].num_nodes
     results = []
