@@ -57,7 +57,8 @@ class RGCNLayer(MessagePassing):
             self.weights = ParameterList([Parameter(randn(in_channels,out_channels)) for _ in range(num_relations)])
             self.prop_type=None
         self.self_connection = Parameter(randn(in_channels,out_channels))
-        glorot(self.weights)
+        if num_bases is None:
+            glorot(self.weights)
         glorot(self.self_connection)
 
     def partial_message(self,x_l,weight,prop_type):
