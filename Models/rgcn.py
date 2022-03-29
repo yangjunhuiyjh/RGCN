@@ -49,16 +49,18 @@ class RGCNLayer(MessagePassing):
             self.block_dim = in_channels//num_blocks
             self.prop_type='block'
         elif num_bases is not None:
-            self.basis_vectors = ModuleList([Linear(in_channels,out_channels,False) for _ in range(num_bases)])
+            # self.basis_vectors = ModuleList([Linear(in_channels,out_channels,False) for _ in range(num_bases)])
+            # glorot(self.basis_vectors)
+            # self.weights = ParameterList([Parameter(randn(num_bases)) for _ in range(num_relations)])
+            self.basis_vectors = Parameter(randn(num_bases,in_channels,out_channels))
             glorot(self.basis_vectors)
-            self.weights = ParameterList([Parameter(randn(num_bases)) for _ in range(num_relations)])
+            self.weights = Parameter(randn(num_relations,num_bases))
             self.prop_type='basis'
         else:
             self.weights = ParameterList([Parameter(randn(in_channels,out_channels)) for _ in range(num_relations)])
             self.prop_type=None
         self.self_connection = Parameter(randn(in_channels,out_channels))
-        if num_bases is None:
-            glorot(self.weights)
+        glorot(self.weights)
         glorot(self.self_connection)
 
     def partial_message(self,x_l,weight,prop_type):
@@ -67,7 +69,7 @@ class RGCNLayer(MessagePassing):
             message = x_l @ weight
             return message
         elif prop_type=='basis':
-            return (stack([bv(x_l) for bv in self.basis_vectors],-1) @ weight)
+            return x_l @ (weight @ self.basis_vectors.view(self.num_bases, -1)).view(self.in_channels,self.out_channels)
         else:
             return x_l @ weight
 
