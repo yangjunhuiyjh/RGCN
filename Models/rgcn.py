@@ -40,9 +40,9 @@ class RGCNLayer(MessagePassing):
         self.activation = activation
         self.norm_type = norm_type
         if self.norm_type == 'attention':
-            self.leaky_relu = LeakyReLU()
-            self.attention_weights = ParameterList([Parameter(randn(2*out_channels)) for _ in range(num_relations)])
-            # glorot(self.attention_weights)
+            self.leaky_relu = LeakyReLU(0.2)
+            self.attention_weights = Parameter(randn(num_relations,2*out_channels))
+            glorot(self.attention_weights)
         if num_blocks is not None: 
             assert(in_channels%num_blocks==0 and out_channels%num_blocks==0)      
             self.weights = ParameterList([Parameter(block_diag(*[randn(in_channels//num_blocks,out_channels//num_blocks) for _ in range(num_blocks)])) for _ in range(num_relations)])
@@ -80,7 +80,8 @@ class RGCNLayer(MessagePassing):
             message_j = self.partial_message(x_j,weight_r,prop_type)
             message_i = self.partial_message(x_i,weight_r,prop_type)
             a_ij_num = exp(self.leaky_relu(cat([message_i,message_j],dim=-1))@attention)
-            self.r_attention_total[index]+=a_ij_num
+            for i,e in enumerate(index):
+                self.r_attention_total[e]+=a_ij_num[i]
             return mul(norm,a_ij_num).view(-1,1) * message_j
 
     def forward(self,x: Tensor, edge_index, edge_attributes):
