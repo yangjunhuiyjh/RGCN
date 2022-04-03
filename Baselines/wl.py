@@ -20,7 +20,7 @@ class WL(Module):
     def generate_wl_features(self, ids, edge_index: Tensor):
         graphs = []
         for id in tqdm.tqdm(ids):
-            nodes, ec, _, _ = k_hop_subgraph(id, 100, edge_index, True)
+            nodes, ec, _, _ = k_hop_subgraph(id, 5, edge_index, True)
             g = igraph.Graph()
             g.add_vertices(nodes.size(0))
             edges = [(par[0].item(), par[1].item()) for par in ec.T]

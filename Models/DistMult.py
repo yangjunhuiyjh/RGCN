@@ -11,19 +11,15 @@ class distMult(torch.nn.Module):
             torch.normal(mean=init_mean, std=init_std, size=(self.num_relations, self.dim)))
 
     def forward(self, h, r, t):
-        '''
+        """
         batched queries (h,r,t):
         h: (batch_size,dim)
         r: (batch_size,)
         t: (batch_size,dim)
 
         return:
-           output: (batch_size), scores for queries 
-      '''
-        if len(h.shape) == 1:
-            batch_size = 1
-        else:
-            batch_size = h.shape[0]
+           output: (batch_size), scores for queries
+        """
         return torch.sum(h * t * self.diag[r, :], dim=1)
 
 
