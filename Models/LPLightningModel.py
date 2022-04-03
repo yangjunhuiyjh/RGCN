@@ -9,7 +9,7 @@ from torch_geometric.utils import negative_sampling
 
 
 class LinkPredictionRGCN(LightningModule):
-    def __init__(self, num_layers, in_dim, hidden_dim, out_dim, num_relations, num_entities=14541, omega=1,
+    def __init__(self, num_layers, in_dim, hidden_dim, out_dim, num_relations, num_entities, omega=1,
                  l2lambda=0.01, optimizer=Adam, lr=0.01, **kwargs):
         super(LinkPredictionRGCN, self).__init__()
         self.num_relations = num_relations
@@ -86,7 +86,7 @@ class LinkPredictionRGCN(LightningModule):
 
 
 class LinkPredictionDistMult(LightningModule):
-    def __init__(self, out_dim, num_relations, num_entities=14541, omega=1,
+    def __init__(self, out_dim, num_relations, num_entities, omega=1,
                  l2lambda=0.01, optimizer=Adam, lr=0.01, **kwargs):
         super(LinkPredictionDistMult, self).__init__()
         self.num_relations = num_relations
