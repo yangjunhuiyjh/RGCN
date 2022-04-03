@@ -8,7 +8,7 @@ from sklearn.model_selection import GridSearchCV
 import tqdm
 from torch_geometric.utils import k_hop_subgraph
 import igraph
-import graphkernals.kernels as gk
+import graphkernels.kernels as gk
 
 
 class ec_baseline(Module):
