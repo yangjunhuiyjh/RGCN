@@ -2,7 +2,7 @@ from torch.nn.parameter import Parameter
 from torch import FloatTensor, LongTensor, as_tensor, norm, ones, long, full, sigmoid
 from torch.nn.functional import one_hot
 from pytorch_lightning import LightningModule
-from torch.nn import ModuleList, BCELoss
+from torch.nn import ModuleList, BCELoss, Linear
 from torch import relu, softmax
 from torch.optim import Adam
 from Models.rgcn import RGCNLayer
@@ -14,8 +14,10 @@ class LinkPredictionRGCN(LightningModule):
     def __init__(self, num_layers, in_dim, hidden_dim, out_dim, num_relations, num_entities, omega=1, l2lambda=0.01, optimizer= Adam, lr=0.01,**kwargs):
         super(LinkPredictionRGCN,self).__init__()
         self.num_relations = num_relations
-        self.embedder = Parameter(FloatTensor(num_entities,in_dim))
-        kaiming_normal_(self.embedder)
+        self.num_entities = num_entities
+        # self.embedder = Parameter(FloatTensor(num_entities,in_dim))
+        # kaiming_normal_(self.embedder)
+        self.embedder = Linear(num_entities,out_dim)
         self.layers = ModuleList([RGCNLayer(in_dim,hidden_dim,num_relations,**kwargs)]+[RGCNLayer(hidden_dim,hidden_dim, num_relations,**kwargs) for _ in range(num_layers-2)]+[RGCNLayer(hidden_dim,out_dim, num_relations)])
         self.loss = BCELoss(reduction='sum')
         self.distmult = distMult(out_dim,num_relations)
@@ -27,7 +29,8 @@ class LinkPredictionRGCN(LightningModule):
         self.save_hyperparameters()
 
     def forward(self, edge_index, edge_types):
-        x = self.embedder
+        x = one_hot(as_tensor([i for i in range(self.num_nodes)],dtype=long)).float()
+        x = self.embedder(x)
         edge_attributes = one_hot(edge_types,num_classes=self.num_relations)
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
@@ -44,7 +47,8 @@ class LinkPredictionRGCN(LightningModule):
         edge_index = batch.train_edge_index
         edge_attributes = batch.train_edge_type
         edge_attributes = one_hot(edge_attributes,num_classes=self.num_relations)
-        x = self.embedder
+        x = one_hot(as_tensor([i for i in range(self.num_nodes)],dtype=long)).float()
+        x = self.embedder(x)
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
         #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
