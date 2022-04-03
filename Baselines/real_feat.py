@@ -11,7 +11,7 @@ import igraph
 import graphkernels.kernels as gk
 
 
-class ec_baseline(Module):
+class feat(Module):
     def __init__(self,num_nodes,num_relation_types) -> None:
         self.x = zeros((num_nodes,num_relation_types))
         self.num_relation_types = num_relation_types
@@ -22,18 +22,6 @@ class ec_baseline(Module):
             u = edge[0].item()
             r = edge_type[i].item()
             self.x[u,r]+=1
-
-    def generate_wl_features(self,ids,edge_index: Tensor, edge_type: Tensor):
-        graphs = []
-        for id in ids:
-            nodes,ec,mapping,em = k_hop_subgraph(id,100,edge_index,True)
-            g = igraph.Graph()
-            g.add_vertices(nodes.size(0))
-            g.add_edges(ec.T)
-            graphs.append(g)
-        k_wl = gk.CaculateWLKernel(graphs, par =4)
-        return k_wl
-        
 
     def run_svm(self,c,train_idx,train_y):
         svc = svm.LinearSVC(C=c)
@@ -48,13 +36,10 @@ class ec_baseline(Module):
         return svc
 
 if __name__ == '__main__':
-    ds = Entities("Datasets/mutag","mutag")
+    ds = Entities("../Datasets/mutag", "mutag")
     print(ds[0])
     ds[0]
-    ids = [i.item() for i in ds[0].train_idx]
-    ids += [i.item() for i in ds[0].test_idx]
-    model = ec_baseline(23644,46)
-    model.generate_wl_features(ds[0].edge_index,None)
+    model = feat(23644, 46)
     model.generate_feat_features(ds[0].edge_index,ds[0].edge_type)
     svc = model.grid_search(ds[0].train_idx,ds[0].train_y)
     pred_y = svc.predict(model.x[ds[0].test_idx])

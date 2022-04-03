@@ -8,36 +8,34 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
 import pandas as pd
 
-RANDOM_STATE = 22
-
-graph = Entities("samples", "AIFB")[0]
-
-train_entities = [str(entity.item()) for entity in graph.train_idx]
-train_labels = [str(label.item()) for label in graph.train_y]
-test_entities = [str(entity.item()) for entity in graph.test_idx]
-test_labels = [str(label.item()) for label in graph.test_y]
-
-entities = train_entities + test_entities
-labels = train_labels + test_labels
-
-print(entities)
-
-knowledge_graph = KG()
-for r in range(graph.edge_index.size()[-1]):
-    edge = graph.edge_index[:, r]
-    subj = Vertex(str(edge[0].item()))
-    obj = Vertex(str(edge[1].item()))
-    pred = Vertex(str(graph.edge_type[r].item()), predicate=True, vprev=subj, vnext=obj)
-    knowledge_graph.add_walk(subj, pred, obj)
-
-
-transformer = RDF2VecTransformer(
-    Word2Vec(epochs=10),
-    walkers=[RandomWalker(4, 10, with_reverse=True, n_jobs=2)],
-    verbose=1
-)
 
 if __name__ == '__main__':
+    graph = Entities("../Datasets", "AIFB")[0]
+
+    train_entities = [str(entity.item()) for entity in graph.train_idx]
+    train_labels = [str(label.item()) for label in graph.train_y]
+    test_entities = [str(entity.item()) for entity in graph.test_idx]
+    test_labels = [str(label.item()) for label in graph.test_y]
+
+    entities = train_entities + test_entities
+    labels = train_labels + test_labels
+
+    print(entities)
+
+    knowledge_graph = KG()
+    for r in range(graph.edge_index.size()[-1]):
+        edge = graph.edge_index[:, r]
+        subj = Vertex(str(edge[0].item()))
+        obj = Vertex(str(edge[1].item()))
+        pred = Vertex(str(graph.edge_type[r].item()), predicate=True, vprev=subj, vnext=obj)
+        knowledge_graph.add_walk(subj, pred, obj)
+
+    transformer = RDF2VecTransformer(
+        Word2Vec(epochs=10),
+        walkers=[RandomWalker(4, 10, with_reverse=True, n_jobs=2)],
+        verbose=1
+    )
+
     embeddings, literals = transformer.fit_transform(knowledge_graph, entities)
     print(literals)
 
@@ -47,7 +45,7 @@ if __name__ == '__main__':
     # Fit a Support Vector Machine on train embeddings and pick the best
     # C-parameters (regularization strength).
     clf = GridSearchCV(
-        SVC(random_state=RANDOM_STATE), {"C": [10 ** i for i in range(-3, 4)]}
+        SVC(), {"C": [10 ** i for i in range(-3, 4)]}
     )
     clf.fit(train_embeddings, train_labels)
 
