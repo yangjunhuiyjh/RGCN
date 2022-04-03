@@ -15,7 +15,7 @@ for graph in dl:
     edge_index=graph.test_edge_index
     edge_types=graph.test_edge_type
     x = model.forward(edge_index,edge_types)
-    for edge in tqdm(range(10)):
+    for edge in tqdm(range(graph.test_edge_index.size(1))):
         edge_idxs = edge_index[:,edge]
         edge_score = model.score(edge_idxs[0],edge_types[edge],edge_idxs[1],x).squeeze().item()
         rank_s = 1
