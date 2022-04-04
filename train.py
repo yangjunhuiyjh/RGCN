@@ -17,13 +17,22 @@ def parse_arguments():
     parser.add_argument('--task', type=str, default='ec')
     parser.add_argument('--num_epoch', type=int, default=100, help='number of maximum epochs')
     parser.add_argument('--num_edge_types', type=int, default=90)
-    parser.add_argument('--batch_size', type=int, default=1, help='batchsize')
+    parser.add_argument('--norm_type', type=str, default='relation-degree',
+                        help='normalisation method')
+    parser.add_argument('--l2param', type=float, default=0.01)
+    parser.add_argument('--num_bases', type=int, default=30)
+    parser.add_argument('--num_blocks', type=int, default=50)
+    parser.add_argument('--hidden_dim', type=int, default=16)
+    parser.add_argument('--out_dim', type=int, default=4)
+    parser.add_argument('--batch_size', type=int, default=1, help='batch size')
     parser.add_argument('--lr', type=float, default=1e-2, help='the learning rate used by the optimizer')
     parser.add_argument('--model_output_path', type=str, default='trained_models/model.ckpt',
                         help='Where model is stored after training')
     parser.add_argument('--debug', default=False, action='store_true',
                         help='use small training set and disable logging for quickfire testing')
     parser.add_argument('--num_gpus', type=int, default=0, help='number of gpus to be used')
+    parser.add_argument('--ensemble', default=False, action='store_true',
+                        help='use the ensemble between rgcn and distmult for link prediction')
     return parser.parse_args()
 
 
@@ -67,7 +76,6 @@ if __name__ == '__main__':
     num_relations = ds[0].edge_type.size(0)
     num_relation_types = args.num_edge_types
     print(num_nodes, num_relations)
-    # raise ValueError("oops")
 
     if args.debug:
         logger = None
@@ -82,6 +90,9 @@ if __name__ == '__main__':
         model, trainer = train_ec(logger, dl, args.num_epoch, num_nodes, num_relation_types)
     elif args.task == 'lp':
         model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relations, args.model)
+    else:
+        raise ValueError("invalid task!")
+
     print(model)
     trainer.fit(model, dl)
     trainer.save_checkpoint(args.model_output_path)
