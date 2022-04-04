@@ -1,4 +1,4 @@
-from torch import LongTensor, as_tensor, norm, ones, long
+from torch import as_tensor, norm, long
 from torch.nn.functional import one_hot
 from pytorch_lightning import LightningModule
 from torch.nn import ModuleList, CrossEntropyLoss, Linear
@@ -7,6 +7,8 @@ from torch.optim import Adam
 import torchmetrics
 from Models.rgcn import RGCNLayer
 from torch_geometric.nn import RGCNConv
+
+
 class EntityClassificationRGCN(LightningModule):
     def __init__(self, num_layers, in_dim, hidden_dim, out_dim, num_relations, l2lambda=0.01, optimizer= Adam, lr=0.01, simplified=False, **kwargs):
         super(EntityClassificationRGCN,self).__init__()
@@ -31,7 +33,7 @@ class EntityClassificationRGCN(LightningModule):
             x = self.encoder(x)
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
-        return softmax(x,-1)
+        return softmax(x, -1)
 
     def training_step(self, batch, batch_idx):
         x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y
@@ -42,23 +44,23 @@ class EntityClassificationRGCN(LightningModule):
             x = self.encoder(x)
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
-        #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
-        x = softmax(x[batch.train_idx],-1)
-        loss = self.loss(x,y)
-        for name, param in self.layers[0].named_parameters(): ## L2 Loss
+        # CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
+        x = softmax(x[batch.train_idx], -1)
+        loss = self.loss(x, y)
+        for name, param in self.layers[0].named_parameters():  # L2 Loss
             loss += norm(param) * self.l2lambda
-        self.log("train_loss",loss.item())
-        ypred = max(x,-1).indices
-        self.train_accuracy(ypred,y)
-        self.log("train_acc",self.train_accuracy)
+        self.log("train_loss", loss.item())
+        ypred = max(x, -1).indices
+        self.train_accuracy(ypred, y)
+        self.log("train_acc", self.train_accuracy)
         return loss
+
     def train_step_end(self, outs):
-        self.log("train_epoch_acc",self.train_accuracy)
-        
+        self.log("train_epoch_acc", self.train_accuracy)
 
     def test_step(self, batch, batch_idx):
         x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.test_y
-        edge_attributes = one_hot(edge_attributes,num_classes=self.num_relations)
+        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
         if x is None:##If there are no initial features, just use a one to encode it
             x = one_hot(as_tensor([i for i in range(batch.num_nodes)],dtype=long)).float()
         if self.simplified:
@@ -73,7 +75,7 @@ class EntityClassificationRGCN(LightningModule):
         self.log("test_acc",self.test_accuracy)
 
     def test_step_end(self, outs):
-        self.log("test_epoch_acc",self.test_accuracy)
+        self.log("test_epoch_acc", self.test_accuracy)
 
     def configure_optimizers(self):
-        return self.optimizer(self.parameters(),lr=self.lr)
+        return self.optimizer(self.parameters(), lr=self.lr)
