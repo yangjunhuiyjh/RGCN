@@ -6,3 +6,7 @@ torch-cluster
 torch-spline-conv 
 torch-geometric
 optuna
+igraph
+graphkernels
+pytorch-lightning
+rdflib
