@@ -108,7 +108,7 @@ class LinkPredictionDistMult(LightningModule):
         x = self.embedder(x)
         return x
 
-    def batch_edges(self, edges, edge_type, label, batch_size=10):
+    def batch_edges(self, edges, edge_type, label, batch_size=1):
         batched_edges = []
         for i in range(0, edges.size(1), batch_size):
             batch = (
