@@ -10,7 +10,7 @@ from torch_geometric.utils import negative_sampling
 
 class LinkPredictionRGCN(LightningModule):
     def __init__(self, num_layers, in_dim, hidden_dim, out_dim, num_relations, num_entities, omega=1,
-                 l2lambda=0.01, optimizer=Adam, lr=0.01, **kwargs):
+                 l2lambda=0.01, optimizer=Adam, lr=0.01, ensemble_alpha=1, **kwargs):
         super(LinkPredictionRGCN, self).__init__()
         self.num_relations = num_relations
         self.num_entities = num_entities
@@ -22,12 +22,18 @@ class LinkPredictionRGCN(LightningModule):
                                      RGCNLayer(hidden_dim, out_dim, num_relations)])
         self.loss = BCELoss(reduction='sum')
         self.distmult = distMult(out_dim, num_relations)
+        self.ensemble_alpha = ensemble_alpha
+        self.ensemble_distmult = None
         self.optimizer = optimizer
         self.omega = omega
         self.num_entities = num_entities
         self.lr = lr
         self.l2lambda = l2lambda
         self.save_hyperparameters()
+
+    def make_ensemble(self,distmult):
+        self.ensemble_distmult = distmult
+
 
     def forward(self, edge_index, edge_types):
         x = one_hot(as_tensor([i for i in range(self.num_nodes)], dtype=long)).float()

@@ -57,6 +57,10 @@ if __name__ == '__main__':
             model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relations, norm_type=args.norm_type,
                                       num_blocks=args.num_blocks, hidden_dim=args.hidden_dim,
                                       lr=args.lr, num_gpus=args.num_gpus, model=args.model)
+            if args.ensemble:
+                distmult, _ = train_distmult(...)
+                model.make_ensemble(distmult)
+            
             results.append(trainer.test(model, dl))
     else:
         raise ValueError('invalid task!')
