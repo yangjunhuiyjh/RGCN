@@ -35,7 +35,6 @@ def parse_arguments():
                         help='use the ensemble between rgcn and distmult for link prediction')
     return parser.parse_args()
 
-<<<<<<< HEAD
 def train_ec(logger, dl, epochs, num_nodes, num_relation_types, l2param =0.01, norm_type='relation-degree', num_bases=30, hidden_dim=16, out_dim=4,lr=0.01,num_gpus=0, simplified=False):
     if num_gpus>0:
         trainer = Trainer(logger=logger,log_every_n_steps=1,max_epochs=epochs,gpus=num_gpus,enable_checkpointing=False,strategy='ddp')
@@ -43,20 +42,6 @@ def train_ec(logger, dl, epochs, num_nodes, num_relation_types, l2param =0.01, n
         trainer = Trainer(logger=logger,log_every_n_steps=1,max_epochs=epochs,gpus=num_gpus,enable_checkpointing=False)
     model = EntityClassificationRGCN(2,num_nodes,hidden_dim,out_dim,num_relation_types,num_bases=num_bases,l2lambda=l2param,lr=lr, norm_type=norm_type, simplified=simplified)
     trainer.fit(model,dl)
-=======
-
-def train_ec(logger, dl, epochs, num_nodes, num_relation_types, l2param=0.01, norm_type='relation-degree', num_bases=30,
-             hidden_dim=16, out_dim=4, lr=0.01, num_gpus=0):
-    if num_gpus > 0:
-        trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
-                          enable_checkpointing=False, strategy='ddp')
-    else:
-        trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
-                          enable_checkpointing=False)
-    model = EntityClassificationRGCN(2, num_nodes, hidden_dim, out_dim, num_relation_types, num_bases=num_bases,
-                                     l2lambda=l2param, lr=lr, norm_type=norm_type)
-    trainer.fit(model, dl)
->>>>>>> 83dbdbc8f0812d62f260fc0ecb30754b4589acd7
     return model, trainer
 
 
