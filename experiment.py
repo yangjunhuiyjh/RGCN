@@ -58,6 +58,8 @@ if __name__ == '__main__':
                                       num_blocks=args.num_blocks, hidden_dim=args.hidden_dim,
                                       lr=args.lr, num_gpus=args.num_gpus, model=args.model)
             results.append(trainer.test(model, dl))
+    else:
+        raise ValueError('invalid task!')
 
     acc = 0
     for result in results:
