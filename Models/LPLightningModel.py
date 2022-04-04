@@ -1,3 +1,4 @@
+from sklearn import ensemble
 from torch import as_tensor, norm, long, full, sigmoid
 from torch.nn.functional import one_hot
 from pytorch_lightning import LightningModule
@@ -73,6 +74,36 @@ class LinkPredictionRGCN(LightningModule):
         for (edge, edge_attribute, label) in batches:
             score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
             loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+        for name, param in self.distmult.named_parameters():  ## L2 Loss
+            loss += norm(param) * self.l2lambda
+        self.log("train_loss", loss.item())
+        return loss
+
+    def test_step(self, batch):
+        edge_index = batch.train_edge_index
+        edge_attributes = batch.train_edge_type
+        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
+        x = one_hot(as_tensor([i for i in range(self.num_nodes)], dtype=long)).float()
+        x = self.embedder(x)
+        for l in self.layers:
+            x = l(x, edge_index, edge_attributes)
+        #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
+        loss = 0
+        for _ in range(self.omega):
+            edges = negative_sampling(edge_index, self.num_entities)
+            batches = self.batch_edges(edges, batch.train_edge_type, 0.0)
+            for (edge, edge_attribute, label) in batches:
+                score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
+                if self.ensemble_distmult is not None:
+                    score = self.ensemble_alpha*score + (1-self.ensemble_alpha)*sigmoid(self.ensemble_distmult(x[edge[0], edge_attribute, x[edge[1]]]))
+                ### TODO measure metrics
+        edges = edge_index
+        batches = self.batch_edges(edges, batch.train_edge_type, 1.0)
+        for (edge, edge_attribute, label) in batches:
+            score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
+            if self.ensemble_distmult is not None:
+                score = self.ensemble_alpha*score + (1-self.ensemble_alpha)*sigmoid(self.ensemble_distmult(x[edge[0], edge_a
+                ### TODO measure metrics
         for name, param in self.distmult.named_parameters():  ## L2 Loss
             loss += norm(param) * self.l2lambda
         self.log("train_loss", loss.item())
