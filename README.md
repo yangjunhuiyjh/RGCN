@@ -6,7 +6,7 @@ run
 $ pip install -r requirements.txt
 ```
 ## Setup
-To install a dataset run the dataloader file relating to the dataset. Thus to run with wn18 first run:
+To install a dataset run the dataloader file relating to the dataset. Thus first run:
 ```shell
-$ python DataLoaders/wn18.py
+$ python DataLoaders/setup.py
 ```
