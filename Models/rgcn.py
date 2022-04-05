@@ -1,6 +1,6 @@
 from torch import Tensor, relu, cat, randn, tensor, where, zeros, ones, exp, mul, nan_to_num, \
     block_diag
-from torch.nn import LeakyReLU
+from torch.nn import LeakyReLU, Module, ModuleList
 from torch.nn import Parameter, ParameterList
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import degree
@@ -9,6 +9,15 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.nn.inits import glorot
 from torch_geometric.utils import dropout_adj
 
+class BlockLinear(Module):
+    def __init__(self, in_channels, out_channels, num_blocks) -> None:
+        super(BlockLinear,self).__init__()
+        self.weights = ParameterList(
+                [Parameter(randn(in_channels // num_blocks, out_channels // num_blocks)) for _ in range(num_blocks)])
+        
+    def forward(self, x):
+        weight = block_diag(*self.weights)
+        return x @ weight
 
 class RGCNLayer(MessagePassing):
     def __init__(self, in_channels, out_channels, num_relation_types, num_blocks=None, num_bases=None,
@@ -44,8 +53,7 @@ class RGCNLayer(MessagePassing):
             glorot(self.attention_weights)
         if num_blocks is not None:
             assert (in_channels % num_blocks == 0 and out_channels % num_blocks == 0)
-            self.weights = ParameterList([Parameter(
-                block_diag(*[randn(in_channels // num_blocks, out_channels // num_blocks) for _ in range(num_blocks)]))
+            self.weights = ModuleList([BlockLinear(in_channels, out_channels, num_blocks)
                                           for _ in range(num_relation_types)])
             self.block_dim = in_channels // num_blocks
             self.prop_type = 'block'
@@ -67,9 +75,7 @@ class RGCNLayer(MessagePassing):
 
     def partial_message(self, x_l, weight, prop_type):
         if prop_type == 'block':
-            # message= cat([e(x_l[:,i*self.block_dim:(i+1)*self.block_dim]) for i,e in enumerate(weight)],dim=-1)
-            message = x_l @ weight
-            return message
+            return weight(x_l)
         elif prop_type == 'basis':
             return x_l @ (weight @ self.basis_vectors.view(self.num_bases, -1)).view(self.in_channels,
                                                                                      self.out_channels)
@@ -77,6 +83,10 @@ class RGCNLayer(MessagePassing):
             return x_l @ weight
 
     def message(self, x_j, x_i, weight_r, norm, prop_type, index, attention=None):
+        '''
+        x_j is of size [num_neighbours,hidden_dim]
+        norm is of size [num_neigbours]
+        '''
         if attention is None:
             return norm.view(-1, 1) * self.partial_message(x_j, weight_r, prop_type)
         else:
@@ -118,12 +128,15 @@ class RGCNLayer(MessagePassing):
             norm = nan_to_num(1 / deg[row], nan=0.0, posinf=0.0, neginf=0.0)
         elif self.norm_type == 'non-relation-degree':
             row, col = edge_index
+            masked_row, _ = edge_index.T[where(edge_attributes[:, r] > 0)].T
             deg = degree(row, x.size(0))
-            norm = nan_to_num(1 / deg[row], nan=0.0, posinf=0.0, neginf=0.0)
+            norm = nan_to_num(1 / deg[masked_row], nan=0.0, posinf=0.0, neginf=0.0)
         elif self.norm_type == 'attention' or self.norm_type == None:
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
             row, col = masked_edge_index
             norm = ones(x.size(0))[row]
+        else:
+            raise ValueError("norm type incorrect",self.norm_type)
         return norm
 
 
