@@ -16,7 +16,7 @@ def parse_arguments():
     parser.add_argument('--model', type=str, default='rgcn')
     parser.add_argument('--task', type=str, default='ec')
     parser.add_argument('--num_epoch', type=int, default=100, help='number of maximum epochs')
-    parser.add_argument('--num_edge_types', type=int, default=90)
+    parser.add_argument('--num_relation_types', type=int, default=90)
     parser.add_argument('--norm_type', type=str, default='relation-degree',
                         help='normalisation method')
     parser.add_argument('--l2param', type=float, default=0.01)
@@ -36,7 +36,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def train_ec(logger, dl, epochs, num_nodes, num_relation_types, l2param=0.01, norm_type='relation-degree', num_bases=30,
+def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01, norm_type='relation-degree', num_bases=30,
              hidden_dim=16, out_dim=4, lr=0.01, num_gpus=0, simplified=False):
     if num_gpus > 0:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
@@ -44,13 +44,14 @@ def train_ec(logger, dl, epochs, num_nodes, num_relation_types, l2param=0.01, no
     else:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
                           enable_checkpointing=False)
-    model = EntityClassificationRGCN(2, num_nodes, hidden_dim, out_dim, num_relation_types, num_bases=num_bases,
+    model = EntityClassificationRGCN(2, num_entities, hidden_dim, out_dim, num_relation_types, num_bases=num_bases,
                                      l2lambda=l2param, lr=lr, norm_type=norm_type, simplified=simplified)
+    print(model)
     trainer.fit(model, dl)
     return model, trainer
 
 
-def train_lp(logger, dl, epochs, num_nodes, num_relations, norm_type='non-relation-degree', num_blocks=100,
+def train_lp(logger, dl, epochs, num_entities, num_relation_types, norm_type='non-relation-degree', num_blocks=100,
              hidden_dim=500, lr=0.01, num_gpus=0, model='rgcn'):
     if num_gpus > 0:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
@@ -59,11 +60,12 @@ def train_lp(logger, dl, epochs, num_nodes, num_relations, norm_type='non-relati
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
                           enable_checkpointing=False)
     if model == 'rgcn':
-        model = LinkPredictionRGCN(2, hidden_dim, hidden_dim, hidden_dim, num_relations, num_nodes,
+        model = LinkPredictionRGCN(2, hidden_dim, num_relation_types, num_entities,
                                    num_blocks=num_blocks, norm_type=norm_type, lr=lr)
     elif model == 'distmult':
-        model = LinkPredictionDistMult(hidden_dim, num_relations, num_nodes,
-                                       num_blocks=num_blocks, norm_type=norm_type, lr=lr)
+        model = LinkPredictionDistMult(hidden_dim, num_relation_types, num_entities,
+                                       num_blocks=num_blocks, lr=lr)
+    print(model)
     trainer.fit(model, dl)
     return model, trainer
 
@@ -72,10 +74,10 @@ if __name__ == '__main__':
     args = parse_arguments()
     ds = get_dataset(args.dataset)
     print(ds[0])
-    num_nodes = ds[0].num_nodes
+    num_entities = ds[0].num_nodes
     num_relations = ds[0].edge_type.size(0)
-    num_relation_types = args.num_edge_types
-    print(num_nodes, num_relations)
+    num_relation_types = args.num_relation_types
+    print(num_entities, num_relations)
 
     if args.debug:
         logger = None
@@ -87,9 +89,9 @@ if __name__ == '__main__':
     print(len(ds), ds, type(ds))
     dl = DataLoader(ds, args.batch_size)
     if args.task == 'ec':
-        model, trainer = train_ec(logger, dl, args.num_epoch, num_nodes, num_relation_types)
+        model, trainer = train_ec(logger, dl, args.num_epoch, num_entities, num_relation_types)
     elif args.task == 'lp':
-        model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relations, args.model)
+        model, trainer = train_lp(logger, dl, args.num_epoch, num_entities, num_relation_types)
     else:
         raise ValueError("invalid task!")
 
