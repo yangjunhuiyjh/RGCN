@@ -97,8 +97,10 @@ class LinkPredictionRGCN(LightningModule):
         self.log("train_loss", loss.item())
         return loss
 
-    def testing_step(self, batch):
+    def test_step(self, batch, batch_idx):
         print(batch)
+        self.log("Results:", test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
+                   batch.test_edge_index, batch.test_edge_type))
 
     def score(self, s, p, o, x):
         """

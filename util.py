@@ -37,7 +37,7 @@ def calc_hits(ranks):
     return [hits_1 / n, hits_3 / n, hits_10 / n]
 
 
-def test_graph(model, entities, train_edge_index, train_edge_types, test_edge_index, test_edge_types):
+def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edge_index, test_edge_types):
     ranks = []
     filtered_ranks = []
     x = model.forward(train_edge_index, train_edge_types)
@@ -48,7 +48,7 @@ def test_graph(model, entities, train_edge_index, train_edge_types, test_edge_in
         rank_s, filtered_rank_s = 1, 1
         rank_o, filtered_rank_o = 1, 1
 
-        for entity in entities:
+        for entity in range(num_entities):
             s_score = model.score(entity, test_edge_types[edge], edge_idxs[1], x).squeeze().item()
             if s_score > edge_score:
                 rank_s += 1
@@ -65,8 +65,13 @@ def test_graph(model, entities, train_edge_index, train_edge_types, test_edge_in
         filtered_ranks.append(filtered_rank_o)
         filtered_ranks.append(filtered_rank_s)
 
-    print(ranks)
-    print("Raw MRR:", calc_mrr(ranks))
-    print("Filtered MRR:", calc_mrr(filtered_ranks))
-    print("Hits@1, Hits@3, Hits@10:", calc_hits(filtered_ranks))
-    return calc_mrr(filtered_ranks)
+    hits_1, hits_3, hits_10 = calc_hits(filtered_ranks)
+    results = {
+        'raw_mrr': calc_mrr(ranks),
+        'filtered_mrr': calc_mrr(filtered_ranks),
+        'hits@1': hits_1,
+        'hits@3': hits_3,
+        'hits@10': hits_10
+    }
+
+    return results
