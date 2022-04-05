@@ -42,7 +42,7 @@ class EntityClassificationRGCN(LightningModule):
         return softmax(x, -1)
 
     def training_step(self, batch, batch_idx):
-        x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y
+        x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y[:int(0.8*len(batch.train_y))]
         edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
         if x is None:  # If there are no initial features, just use a one to encode it
             x = one_hot(as_tensor([i for i in range(batch.num_nodes)], dtype=long)).float()
@@ -51,7 +51,7 @@ class EntityClassificationRGCN(LightningModule):
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
         # CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
-        x = softmax(x[batch.train_idx], -1)
+        x = softmax(x[batch.train_idx[:int(0.8*len(batch.train_y))]], -1)
         loss = self.loss(x, y)
         for name, param in self.layers[0].named_parameters():  # L2 Loss
             loss += norm(param) * self.l2lambda
@@ -59,6 +59,26 @@ class EntityClassificationRGCN(LightningModule):
         y_pred = max(x, -1).indices
         self.train_accuracy(y_pred, y)
         self.log("train_acc", self.train_accuracy)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y[int(0.8*len(batch.train_y)):]
+        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
+        if x is None:  # If there are no initial features, just use a one to encode it
+            x = one_hot(as_tensor([i for i in range(batch.num_nodes)], dtype=long)).float()
+        if self.simplified:
+            x = self.encoder(x)
+        for l in self.layers:
+            x = l(x, edge_index, edge_attributes)
+        # CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
+        x = softmax(x[batch.train_idx[int(0.8*len(batch.train_y)):]], -1)
+        loss = self.loss(x, y)
+        for name, param in self.layers[0].named_parameters():  # L2 Loss
+            loss += norm(param) * self.l2lambda
+        self.log("validation_loss", loss.item())
+        y_pred = max(x, -1).indices
+        self.train_accuracy(y_pred, y)
+        self.log("validation_acc", self.train_accuracy)
         return loss
 
     def train_step_end(self, outs):

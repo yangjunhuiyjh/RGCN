@@ -47,7 +47,7 @@ def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01,
     model = EntityClassificationRGCN(2, num_entities, hidden_dim, out_dim, num_relation_types, num_bases=num_bases,
                                      l2lambda=l2param, lr=lr, norm_type=norm_type, simplified=simplified)
     print(model)
-    trainer.fit(model, dl)
+    trainer.fit(model, dl, dl)
     return model, trainer
 
 
@@ -66,7 +66,7 @@ def train_lp(logger, dl, epochs, num_entities, num_relation_types, norm_type='no
         model = LinkPredictionDistMult(hidden_dim, num_relation_types, num_entities,
                                        num_blocks=num_blocks, lr=lr)
     print(model)
-    trainer.fit(model, dl)
+    trainer.fit(model, dl, dl)
     return model, trainer
 
 
