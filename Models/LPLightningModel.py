@@ -8,6 +8,7 @@ from Models.rgcn import RGCNLayer
 from Models.DistMult import distMult
 from torch_geometric.utils import negative_sampling
 from tqdm import tqdm
+from util import test_graph
 
 
 class LinkPredictionRGCN(LightningModule):
@@ -96,6 +97,8 @@ class LinkPredictionRGCN(LightningModule):
         self.log("train_loss", loss.item())
         return loss
 
+    def testing_step(self, batch):
+        print(batch)
 
     def score(self, s, p, o, x):
         """

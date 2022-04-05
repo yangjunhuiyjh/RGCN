@@ -9,15 +9,17 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.nn.inits import glorot
 from torch_geometric.utils import dropout_adj
 
+
 class BlockLinear(Module):
     def __init__(self, in_channels, out_channels, num_blocks) -> None:
-        super(BlockLinear,self).__init__()
+        super(BlockLinear, self).__init__()
         self.weights = ParameterList(
-                [Parameter(randn(in_channels // num_blocks, out_channels // num_blocks)) for _ in range(num_blocks)])
-        
+            [Parameter(randn(in_channels // num_blocks, out_channels // num_blocks)) for _ in range(num_blocks)])
+
     def forward(self, x):
         weight = block_diag(*self.weights)
         return x @ weight
+
 
 class RGCNLayer(MessagePassing):
     def __init__(self, in_channels, out_channels, num_relation_types, num_blocks=None, num_bases=None,
@@ -54,7 +56,7 @@ class RGCNLayer(MessagePassing):
         if num_blocks is not None:
             assert (in_channels % num_blocks == 0 and out_channels % num_blocks == 0)
             self.weights = ModuleList([BlockLinear(in_channels, out_channels, num_blocks)
-                                          for _ in range(num_relation_types)])
+                                       for _ in range(num_relation_types)])
             self.block_dim = in_channels // num_blocks
             self.prop_type = 'block'
         elif num_bases is not None:
@@ -66,7 +68,8 @@ class RGCNLayer(MessagePassing):
             self.weights = Parameter(randn(num_relation_types, num_bases))
             self.prop_type = 'basis'
         else:
-            self.weights = ParameterList([Parameter(randn(in_channels, out_channels)) for _ in range(num_relation_types)])
+            self.weights = ParameterList(
+                [Parameter(randn(in_channels, out_channels)) for _ in range(num_relation_types)])
             self.prop_type = None
         self.self_connection = Parameter(randn(in_channels, out_channels))
         glorot(self.weights)
@@ -99,7 +102,7 @@ class RGCNLayer(MessagePassing):
 
     def forward(self, x: Tensor, edge_index, edge_attributes):
         if self.dropout:
-            edge_index, edge_attributes = dropout_adj(edge_index,edge_attributes,self.dropout)
+            edge_index, edge_attributes = dropout_adj(edge_index, edge_attributes, self.dropout)
         out = zeros((x.size(0), self.out_channels))
         for r, e in enumerate(self.weights):
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
@@ -114,7 +117,7 @@ class RGCNLayer(MessagePassing):
                 out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type)
         self_loop_edge_index = tensor([[i, i] for i in range(x.size(0))], dtype=int).T
         if self.dropout:
-            self_loop_edge_index = dropout_adj(self_loop_edge_index,p=self.dropout)
+            self_loop_edge_index = dropout_adj(self_loop_edge_index, p=2 * self.dropout)
         norm = ones(x.size(0))
         out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None)
         out = self.activation(out)
@@ -131,12 +134,12 @@ class RGCNLayer(MessagePassing):
             masked_row, _ = edge_index.T[where(edge_attributes[:, r] > 0)].T
             deg = degree(row, x.size(0))
             norm = nan_to_num(1 / deg[masked_row], nan=0.0, posinf=0.0, neginf=0.0)
-        elif self.norm_type == 'attention' or self.norm_type == None:
+        elif self.norm_type == 'attention' or self.norm_type is None:
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
             row, col = masked_edge_index
             norm = ones(x.size(0))[row]
         else:
-            raise ValueError("norm type incorrect",self.norm_type)
+            raise ValueError("norm type incorrect", self.norm_type)
         return norm
 
 

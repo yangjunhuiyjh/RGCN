@@ -36,7 +36,6 @@ if __name__ == '__main__':
     ds = get_dataset(args.dataset)
     dl = DataLoader(ds)
     num_nodes = ds[0].num_nodes
-    num_relations = ds[0].edge_type.size(0)
     num_relation_types = args.num_edge_types
 
     if args.debug:
@@ -54,7 +53,7 @@ if __name__ == '__main__':
             results.append(trainer.test(model, dl))
     elif args.task == 'lp':
         for _ in range(10):
-            model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relations, norm_type=args.norm_type,
+            model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types, norm_type=args.norm_type,
                                       num_blocks=args.num_blocks, hidden_dim=args.hidden_dim,
                                       lr=args.lr, num_gpus=args.num_gpus, model=args.model)
             if args.ensemble:

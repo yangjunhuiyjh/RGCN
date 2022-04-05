@@ -14,19 +14,18 @@ def get_dataset(name: str):
         train_col = data1.edge_index[1][torch.nonzero(data1.train_mask)]
         train_row = train_row.numpy().flatten()
         train_col = train_col.numpy().flatten()
-        data1.train_edge_index = torch.tensor([train_row,train_col])
-    
+
         test_row = data1.edge_index[0][torch.nonzero(data1.test_mask)]
         test_col = data1.edge_index[1][torch.nonzero(data1.test_mask)]
         test_row = test_row.numpy().flatten()
         test_col = test_col.numpy().flatten()
-    
+
         valid_row = data1.edge_index[0][torch.nonzero(data1.val_mask)]
         valid_col = data1.edge_index[1][torch.nonzero(data1.val_mask)]
         valid_row = valid_row.numpy().flatten()
         valid_col = valid_col.numpy().flatten()
-    
-        data1.test_edge_index = torch.tensor([test_row,test_col])
+
+        data1.test_edge_index = torch.tensor([test_row, test_col])
         data1.train_edge_index = torch.tensor([train_row, train_col])
         data1.valid_edge_index = torch.tensor([valid_row, valid_col])
         data1.train_edge_type = torch.flatten(data1.edge_type[torch.nonzero(data1.train_mask)])
