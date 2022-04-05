@@ -46,7 +46,7 @@ def calc_hits(ranks):
     return [hits_1 / n, hits_3 / n, hits_10 / n]
 
 
-for graph in dl:
+def test_graph(graph,model):
     ranks = []
     filtered_ranks = []
     edge_index = graph.test_edge_index
@@ -80,3 +80,4 @@ for graph in dl:
     print("Raw MRR:", calc_mrr(ranks))
     print("Filtered MRR:", calc_mrr(filtered_ranks))
     print("Hits@1, Hits@3, Hits@10:", calc_hits(filtered_ranks))
+    return calc_mrr(filtered_ranks)
