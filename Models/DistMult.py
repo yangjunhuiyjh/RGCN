@@ -3,12 +3,11 @@ from torch import nn
 
 
 class distMult(torch.nn.Module):
-    def __init__(self, dim, num_relations, init_mean=0.0, init_std=1.0):
+    def __init__(self, dim, num_relation_types, init_mean=0.0, init_std=1.0):
         super(distMult, self).__init__()
         self.dim = dim
-        self.num_relations = num_relations
         self.diag = nn.parameter.Parameter(
-            torch.normal(mean=init_mean, std=init_std, size=(self.num_relations, self.dim)))
+            torch.normal(mean=init_mean, std=init_std, size=(num_relation_types, self.dim)))
 
     def forward(self, h, r, t):
         """
