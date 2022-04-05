@@ -17,7 +17,7 @@ class LinkPredictionRGCN(LightningModule):
         self.num_entities = num_entities
         # self.embedder = Parameter(FloatTensor(num_entities,in_dim))
         # kaiming_normal_(self.embedder)
-        self.embedder = Linear(num_entities, out_dim)
+        self.embedder = Linear(num_entities, in_dim)
         self.layers = ModuleList([RGCNLayer(in_dim, hidden_dim, num_relations, **kwargs)] + [
             RGCNLayer(hidden_dim, hidden_dim, num_relations, **kwargs) for _ in range(num_layers - 2)] + [
                                      RGCNLayer(hidden_dim, out_dim, num_relations)])
@@ -32,9 +32,8 @@ class LinkPredictionRGCN(LightningModule):
         self.l2lambda = l2lambda
         self.save_hyperparameters()
 
-    def make_ensemble(self,distmult):
+    def make_ensemble(self, distmult):
         self.ensemble_distmult = distmult
-
 
     def forward(self, edge_index, edge_types):
         x = one_hot(as_tensor([i for i in range(self.num_nodes)], dtype=long)).float()
@@ -61,7 +60,7 @@ class LinkPredictionRGCN(LightningModule):
         x = self.embedder(x)
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
-        #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
+        # CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         loss = 0
         for _ in range(self.omega):
             edges = negative_sampling(edge_index, self.num_entities)
@@ -87,7 +86,7 @@ class LinkPredictionRGCN(LightningModule):
         x = self.embedder(x)
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
-        #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
+        # CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         loss = 0
         for _ in range(self.omega):
             edges = negative_sampling(edge_index, self.num_entities)
@@ -106,8 +105,7 @@ class LinkPredictionRGCN(LightningModule):
                 ### TODO measure metrics
         for name, param in self.distmult.named_parameters():  ## L2 Loss
             loss += norm(param) * self.l2lambda
-        self.log("train_loss", loss.item())
-        return loss
+        self.log("test_loss", loss.item())
 
     def score(self, s, p, o, x):
         """
