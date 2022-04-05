@@ -3,7 +3,7 @@ from DataLoaders.dataloader import get_dataset
 from torch_geometric.loader import DataLoader
 from pytorch_lightning.loggers import NeptuneLogger
 import argparse
-
+import optuna
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -31,6 +31,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
+
 if __name__ == '__main__':
     args = parse_arguments()
     ds = get_dataset(args.dataset)
@@ -44,29 +45,47 @@ if __name__ == '__main__':
         logger = NeptuneLogger(project='dylanslavinhillier/ATML',
                                api_key="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJjZTZiNDUxYi03ZDNiLTQ3N2EtYjQwMC0wZjA0NTJiNTgwZDQifQ==")
 
-    results = []
+
     if args.task == 'ec':
+        validation_params = {
+            'l2param': [0,5e-4],
+            'num_bases': [None,10,20,40,80],
+            'lr': [1e-2,1e-3,1e-4]
+        }
+        def objective(trial):
+            trial_params = {}
+            for param_name, values in validation_params.items():
+                trial_params[param_name]= trial.suggest_categorical(param_name,values)
+            model, trainer =train_ec(logger, dl, 10, num_nodes, num_relation_types, num_gpus=args.num_gpus, **validation_params)
+            res = model.fin_accuracy
+            return res
+        study = optuna.create_study(direction='maximise')
+        study.optimize(objective,num_trials=10)
+        new_params = study.best_params
+        results = []
         for _ in range(10):
-            model, trainer = train_ec(logger, dl, args.num_epoch, num_nodes, num_relation_types, num_bases=args.num_bases,
+            model, trainer = train_ec(logger, dl, args.num_epoch, num_nodes, num_relation_types,
                                       l2param=args.l2param, norm_type=args.norm_type, hidden_dim=args.hidden_dim,
-                                      out_dim=args.out_dim, lr=args.lr, num_gpus=args.num_gpus)
+                                      out_dim=args.out_dim, lr=args.lr, num_gpus=args.num_gpus, **new_params)
             results.append(trainer.test(model, dl))
+        acc = 0
+        for result in results:
+            print(result)
+            acc += result["test_epoch_acc"]
+        acc /= len(results)
+        print(acc)
     elif args.task == 'lp':
-        for _ in range(10):
-            model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types, norm_type=args.norm_type,
-                                      num_blocks=args.num_blocks, hidden_dim=args.hidden_dim,
-                                      lr=args.lr, num_gpus=args.num_gpus, model=args.model)
-            if args.ensemble:
-                distmult, _ = train_distmult(...)
-                model.make_ensemble(distmult)
+        pass
+        # for _ in range(10):
+        #     model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types, norm_type=args.norm_type,
+        #                               num_blocks=args.num_blocks, hidden_dim=args.hidden_dim,
+        #                               lr=args.lr, num_gpus=args.num_gpus, model=args.model)
+        #     if args.ensemble:
+        #         distmult, _ = train_distmult(...)
+        #         model.make_ensemble(distmult)
             
-            results.append(trainer.test(model, dl))
+        #     results.append(trainer.test(model, dl))
     else:
         raise ValueError('invalid task!')
 
-    acc = 0
-    for result in results:
-        print(result)
-        acc += result["test_epoch_acc"]
-    acc /= len(results)
-    print(acc)
+

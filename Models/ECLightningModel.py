@@ -32,7 +32,9 @@ class EntityClassificationRGCN(LightningModule):
         self.l2lambda = l2lambda
         self.save_hyperparameters()
         self.train_accuracy = torchmetrics.Accuracy()
+        self.val_accuracy = torchmetrics.Accuracy()
         self.test_accuracy = torchmetrics.Accuracy()
+        self.fin_accuracy = None
 
     def forward(self, x, edge_index, edge_attributes):
         if self.simplified:
@@ -77,8 +79,9 @@ class EntityClassificationRGCN(LightningModule):
             loss += norm(param) * self.l2lambda
         self.log("validation_loss", loss.item())
         y_pred = max(x, -1).indices
-        self.train_accuracy(y_pred, y)
-        self.log("validation_acc", self.train_accuracy)
+        self.val_accuracy(y_pred, y)
+        self.log("validation_acc", self.val_accuracy)
+        self.fin_accuracy = torchmetrics.functional.accuracy(y_pred,y).item()
         return loss
 
     def train_step_end(self, outs):
