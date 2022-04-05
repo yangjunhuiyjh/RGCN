@@ -104,9 +104,9 @@ class LinkPredictionRGCN(LightningModule):
 
     def score(self, s, p, o, x):
         """
-        s: index of subject
-        p: index of relation
-        o: index of object
+        s: [batchsize,index] of subject
+        p: [batchsize,index] of relation
+        o: [batchsize,index] of object
         """
         score = self.distmult(x[s].unsqueeze(0), p.unsqueeze(0), x[o].unsqueeze(0))
         return score
@@ -181,11 +181,11 @@ class LinkPredictionDistMult(LightningModule):
 
     def score(self, s, p, o, x):
         """
-        s: index of subject
-        p: index of relation
-        o: index of object
+        s: [batchsize,index] of subject
+        p: [batchsize,index] of relation
+        o: [batchsize,index] of object
         """
-        score = self.distmult(x[s].unsqueeze(0), p.unsqueeze(0), x[o].unsqueeze(0))
+        score = self.distmult(x[s], p, x[o])
         return score
 
     def configure_optimizers(self):
