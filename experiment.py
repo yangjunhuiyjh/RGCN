@@ -122,8 +122,7 @@ if __name__ == '__main__':
         for _ in range(1):
             model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types,
                                       norm_type=args.norm_type,
-                                      num_blocks=args.num_blocks,
-                                      num_gpus=args.num_gpus, model=args.model, **new_params)
+                                      num_gpus=args.num_gpus, model=args.model, callbacks=[EarlyStopping(monitor="validation_loss", mode="min")],**new_params)
             # if args.ensemble:
             #     distmult, _ = train_distmult(...)
             #     model.make_ensemble(distmult)
