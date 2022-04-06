@@ -37,7 +37,7 @@ def parse_arguments():
 
 
 def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01, norm_type='relation-degree', num_bases=30,
-             hidden_dim=16, out_dim=4, lr=0.01, num_gpus=0, simplified=False, callbacks=[]):
+             hidden_dim=16, out_dim=4, lr=0.01, num_gpus=0, simplified=False, callbacks=[], **kwargs):
     if num_gpus > 0:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
                           enable_checkpointing=False, strategy='ddp', callbacks=callbacks)
@@ -46,13 +46,12 @@ def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01,
                           enable_checkpointing=False, callbacks=callbacks)
     model = EntityClassificationRGCN(2, num_entities, hidden_dim, out_dim, num_relation_types, num_bases=num_bases,
                                      l2lambda=l2param, lr=lr, norm_type=norm_type, simplified=simplified)
-    print(model)
     trainer.fit(model, dl, dl)
     return model, trainer
 
 
 def train_lp(logger, dl, epochs, num_entities, num_relation_types, norm_type='non-relation-degree', num_blocks=100,
-             hidden_dim=500, lr=0.01, num_gpus=0, model='rgcn', callbacks=[], l2param = 0): ## add kwargs
+             hidden_dim=500, lr=0.01, num_gpus=0, model='rgcn', callbacks=[], l2param = 0, **kwargs): ## add kwargs
     if num_gpus > 0:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
                           enable_checkpointing=False, strategy='ddp', callbacks=callbacks)
@@ -61,11 +60,10 @@ def train_lp(logger, dl, epochs, num_entities, num_relation_types, norm_type='no
                           enable_checkpointing=False, callbacks=callbacks)
     if model == 'rgcn':
         model = LinkPredictionRGCN(2, hidden_dim, num_relation_types, num_entities,
-                                   num_blocks=num_blocks, norm_type=norm_type, lr=lr, l2lambda = l2param)
+                                   num_blocks=num_blocks, norm_type=norm_type, lr=lr, l2lambda = l2param, **kwargs)
     elif model == 'distmult':
         model = LinkPredictionDistMult(hidden_dim, num_relation_types, num_entities,
-                                       num_blocks=num_blocks, lr=lr, l2lambda = l2param)
-    print(model)
+                                       num_blocks=num_blocks, lr=lr, l2lambda = l2param, **kwargs)
     trainer.fit(model, dl, dl)
     return model, trainer
 
