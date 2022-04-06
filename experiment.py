@@ -115,8 +115,9 @@ if __name__ == '__main__':
 
 
         study = optuna.create_study(direction='minimize')
-        study.optimize(objective, n_trials=10)
-        new_params = study.best_params
+        # study.optimize(objective, n_trials=10)
+        # new_params = study.best_params
+        new_params ={'hidden_dim':200, 'num_blocks':20, 'lr':0.01, 'l2param': 0}
         print("the best parameters are", new_params)
         results = []
         for _ in range(1):
