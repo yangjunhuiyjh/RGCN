@@ -13,7 +13,7 @@ from util import test_graph
 
 class LinkPredictionRGCN(LightningModule):
     def __init__(self, num_layers, hidden_dim, num_relation_types, num_entities, omega=1,
-                 l2lambda=0.01, optimizer=Adam, lr=0.01, ensemble_alpha=1, dropout_ratio=0, **kwargs):
+                 l2lambda=0.01, optimizer=Adam, lr=0.01, ensemble_alpha=1, dropout_ratio=0.2, **kwargs):
         '''
         ensemble_alpha: ensemble weight parameter on LPRGCN (alpha*rgcn+(1-alpha)*distmult)
         dropout_ratio: edge dropout parameter
