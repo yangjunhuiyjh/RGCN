@@ -102,7 +102,7 @@ class RGCNLayer(MessagePassing):
 
     def forward(self, x: Tensor, edge_index, edge_attributes):
         if self.dropout:
-            edge_index, edge_attributes = dropout_adj(edge_index, edge_attributes, self.dropout)
+            edge_index, edge_attributes = dropout_adj(edge_index, edge_attributes, 2 * self.dropout)
         out = zeros((x.size(0), self.out_channels),device=x.device)
         for r, e in enumerate(self.weights):
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
@@ -117,7 +117,7 @@ class RGCNLayer(MessagePassing):
                 out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type)
         self_loop_edge_index = tensor([[i, i] for i in range(x.size(0))], dtype=int, device=x.device).T
         if self.dropout:
-            self_loop_edge_index = dropout_adj(self_loop_edge_index, p=2 * self.dropout)
+            self_loop_edge_index = dropout_adj(self_loop_edge_index, p=self.dropout)
         norm = ones(x.size(0),device=x.device)
         out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None)
         out = self.activation(out)
