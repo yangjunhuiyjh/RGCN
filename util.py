@@ -52,8 +52,8 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
         edge_score = model.score(test_edge[0], test_edge_types[edge], test_edge[1], x).squeeze().item()
         rank_s, filtered_rank_s = 1, 1
         rank_o, filtered_rank_o = 1, 1
-        s_score = model.score([i for i in range(num_entities)], full((num_entities,), test_edge_types[edge].item()),
-                              full((num_entities,), test_edge[1].item()), x)
+        s_score = model.score([i for i in range(num_entities)], full((num_entities,), test_edge_types[edge].item(),device=x.device),
+                              full((num_entities,), test_edge[1].item(),device=x.device), x)
         s_score_masks = s_score > edge_score
         rank_s += sum(s_score_masks)
 
@@ -64,7 +64,7 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
         filtered_s_score_masks = s_score_masks * invalid_triple_masks
         filtered_rank_s += sum(filtered_s_score_masks)  ## Sum for each valid
 
-        o_score = model.score(full((num_entities,), test_edge[0].item()), full((num_entities,), test_edge_types[edge].item()),
+        o_score = model.score(full((num_entities,), test_edge[0].item(), device=x.device), full((num_entities,), test_edge_types[edge].item(), device=x.device),
                               [i for i in range(num_entities)], x)
         o_score_masks = o_score > edge_score
         rank_o += sum(o_score_masks)

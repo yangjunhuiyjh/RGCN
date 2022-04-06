@@ -107,10 +107,10 @@ if __name__ == '__main__':
                                       norm_type=args.norm_type,
                                       num_gpus=args.num_gpus,
                                       callbacks=[
-                                          PyTorchLightningPruningCallback(trial, monitor='validation_filtered_mrr'),
-                                          EarlyStopping(monitor="validation_filtered_mrr", mode="max")],
+                                          PyTorchLightningPruningCallback(trial, monitor='validation_loss'),
+                                          EarlyStopping(monitor="validation_loss", mode="min")],
                                       **trial_params)
-            res = model.fin_accuracy
+            res = model.final_loss
             return res
 
 
@@ -119,7 +119,7 @@ if __name__ == '__main__':
         new_params = study.best_params
         print("the best parameters are", new_params)
         results = []
-        for _ in range(10):
+        for _ in range(1):
             model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types,
                                       norm_type=args.norm_type,
                                       num_blocks=args.num_blocks,

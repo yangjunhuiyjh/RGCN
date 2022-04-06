@@ -103,22 +103,22 @@ class RGCNLayer(MessagePassing):
     def forward(self, x: Tensor, edge_index, edge_attributes):
         if self.dropout:
             edge_index, edge_attributes = dropout_adj(edge_index, edge_attributes, self.dropout)
-        out = zeros((x.size(0), self.out_channels))
+        out = zeros((x.size(0), self.out_channels),device=x.device)
         for r, e in enumerate(self.weights):
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
             norm = self.compute_norm(edge_index, edge_attributes, r, x)
             if self.norm_type == 'attention':
-                self.r_attention_total = zeros(x.size(0))
+                self.r_attention_total = zeros(x.size(0), device=x.device)
                 messages = self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type,
                                           attention=self.attention_weights[r])
                 expanded_divisor = self.r_attention_total.unsqueeze(-1).expand_as(out)
                 out += nan_to_num(messages / expanded_divisor, nan=0.0, posinf=0.0, neginf=0.0)
             else:
                 out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type)
-        self_loop_edge_index = tensor([[i, i] for i in range(x.size(0))], dtype=int).T
+        self_loop_edge_index = tensor([[i, i] for i in range(x.size(0))], dtype=int, device=x.device).T
         if self.dropout:
             self_loop_edge_index = dropout_adj(self_loop_edge_index, p=2 * self.dropout)
-        norm = ones(x.size(0))
+        norm = ones(x.size(0),device=x.device)
         out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None)
         out = self.activation(out)
         return out
@@ -137,7 +137,7 @@ class RGCNLayer(MessagePassing):
         elif self.norm_type == 'attention' or self.norm_type is None:
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
             row, col = masked_edge_index
-            norm = ones(x.size(0))[row]
+            norm = ones(x.size(0), device=edge_index.device)[row]
         else:
             raise ValueError("norm type incorrect", self.norm_type)
         return norm

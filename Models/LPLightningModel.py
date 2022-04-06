@@ -41,6 +41,7 @@ class LinkPredictionRGCN(LightningModule):
         self.num_entities = num_entities
         self.lr = lr
         self.l2lambda = l2lambda
+        self.final_loss = None
         self.save_hyperparameters()
 
     def make_ensemble(self, distmult):
@@ -55,7 +56,7 @@ class LinkPredictionRGCN(LightningModule):
         edge_index: [2,num_edges]
         edge_types: [num_edges]
         '''
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long)).float()
+        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device = edge_index.device)).float()
         x = self.embedder(x)
         edge_attributes = one_hot(edge_types, num_classes=self.num_relation_types)
         for layer in self.layers:
@@ -67,7 +68,7 @@ class LinkPredictionRGCN(LightningModule):
         for i in range(0, edges.size(1), batch_size):
             batch = (
                 edges[:, i:i + batch_size], edge_type[i:i + batch_size],
-                full((min(batch_size, edges.size(1) - i), ), label))
+                full((min(batch_size, edges.size(1) - i), ), label,device=edges.device))
             batched_edges.append(batch)
         return batched_edges
 
@@ -78,7 +79,7 @@ class LinkPredictionRGCN(LightningModule):
         edge_index = batch.train_edge_index
         edge_attributes = batch.train_edge_type
         edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types)
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long)).float()
+        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device = edge_index.device)).float()
         x = self.embedder(x)
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
@@ -106,10 +107,34 @@ class LinkPredictionRGCN(LightningModule):
             self.log("test_"+key,value)
 
     def validation_step(self, batch, batch_idx):
-        results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
-                  batch.valid_edge_index, batch.valid_edge_type)
-        for key,value in results:
-            self.log("validation_"+key,value)
+        edge_index = batch.valid_edge_index
+        edge_attributes = batch.valid_edge_type
+        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types)
+        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device = edge_index.device)).float()
+        x = self.embedder(x)
+        for l in self.layers:
+            x = l(x, edge_index, edge_attributes)
+        loss = 0
+        for _ in range(self.omega):
+            edges = negative_sampling(edge_index, self.num_entities)
+            batches = self.batch_edges(edges, batch.valid_edge_type, 0.0)
+            for (edge, edge_attribute, label) in tqdm(batches):
+                score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
+                loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+        edges = edge_index
+        batches = self.batch_edges(edges, batch.valid_edge_type, 1.0)
+        for (edge, edge_attribute, label) in tqdm(batches):
+            score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
+            loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+        for name, param in self.distmult.named_parameters():  ## L2 Loss
+            loss += norm(param) * self.l2lambda
+        self.log("validation_loss", loss.item())
+        self.final_loss = loss.item()
+        return loss
+        # results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
+        #           batch.valid_edge_index, batch.valid_edge_type)
+        # for key,value in results:
+        #     self.log("validation_"+key,value)
 
     def score(self, s, p, o, x):
         """

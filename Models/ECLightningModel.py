@@ -47,7 +47,7 @@ class EntityClassificationRGCN(LightningModule):
         x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y[:int(0.8*len(batch.train_y))]
         edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
         if x is None:  # If there are no initial features, just use a one to encode it
-            x = one_hot(as_tensor([i for i in range(batch.num_nodes)], dtype=long)).float()
+            x = one_hot(as_tensor([i for i in range(batch.num_nodes)], dtype=long, device = edge_index.device)).float()
         if self.simplified:
             x = self.encoder(x)
         for l in self.layers:
@@ -67,7 +67,7 @@ class EntityClassificationRGCN(LightningModule):
         x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y[int(0.8*len(batch.train_y)):]
         edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
         if x is None:  # If there are no initial features, just use a one to encode it
-            x = one_hot(as_tensor([i for i in range(batch.num_nodes)], dtype=long)).float()
+            x = one_hot(as_tensor([i for i in range(batch.num_nodes)], dtype=long, device=edge_index.device)).float()
         if self.simplified:
             x = self.encoder(x)
         for l in self.layers:
@@ -91,7 +91,7 @@ class EntityClassificationRGCN(LightningModule):
         x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.test_y
         edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
         if x is None:  # If there are no initial features, just use a one to encode it
-            x = one_hot(as_tensor([i for i in range(batch.num_nodes)], dtype=long)).float()
+            x = one_hot(as_tensor([i for i in range(batch.num_nodes)], dtype=long, device=edge_index.device)).float()
         if self.simplified:
             x = self.encoder(x)
         for layer in self.layers:
