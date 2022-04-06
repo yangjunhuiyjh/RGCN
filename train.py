@@ -87,12 +87,12 @@ if __name__ == '__main__':
     print(len(ds), ds, type(ds))
     dl = DataLoader(ds, args.batch_size)
     if args.task == 'ec':
-        model, trainer = train_ec(logger, dl, args.num_epoch, num_entities, num_relation_types)
+        model, trainer = train_ec(logger, dl, args.num_epoch, num_entities, num_relation_types, num_bases = args.num_bases, num_blocks = args.num_blocks)
     elif args.task == 'lp':
-        model, trainer = train_lp(logger, dl, args.num_epoch, num_entities, num_relation_types)
+        model, trainer = train_lp(logger, dl, args.num_epoch, num_entities, num_relation_types, num_bases = args.num_bases, num_blocks = args.num_blocks)
     else:
         raise ValueError("invalid task!")
 
     print(model)
-    trainer.fit(model, dl)
+    trainer.test(model, dl)
     trainer.save_checkpoint(args.model_output_path)
