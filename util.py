@@ -1,4 +1,5 @@
-from torch import full, long, stack, ones_like, tensor
+from numpy import empty_like, ones, ones_like
+from torch import full, stack
 from tqdm import tqdm
 
 
@@ -6,7 +7,7 @@ def generate_invalid_masks_subj(subjects, relation, object, edge_index, edge_typ
     valid_edge_mask = edge_index.T[(edge_types.eq(relation) * edge_index[1, :].eq(object))].T
     valid_subjects = edge_index[0, valid_edge_mask]
     mask = ones_like(subjects)
-    mask = mask.index_fill(0,valid_subjects,0)
+    mask[valid_subjects] = False
     return mask
 
 
@@ -14,7 +15,7 @@ def generate_invalid_masks_obj(subject, relation, objects, edge_index, edge_type
     valid_edge_mask = edge_index.T[(edge_types.eq(relation) * edge_index[0, :].eq(subject))].T
     valid_objects = edge_index[1, valid_edge_mask]
     mask = ones_like(objects)
-    mask = mask.index_fill(0,valid_objects,0)
+    mask[valid_objects] = False
     return mask
 
 
@@ -56,7 +57,7 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
         s_score_masks = s_score > edge_score
         rank_s += sum(s_score_masks)
 
-        invalid_triple_masks = generate_invalid_masks_subj(tensor([i for i in range(num_entities)],dtype=long,device=x.device),
+        invalid_triple_masks = generate_invalid_masks_subj([i for i in range(num_entities)],
                                                            test_edge_types[edge].item(), 
                                                            test_edge[1].item(), 
                                                            test_edge_index, test_edge_types)
@@ -70,7 +71,7 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
 
         invalid_triple_masks = generate_invalid_masks_obj(test_edge[0].item(),
                                                           test_edge_types[edge].item(),
-                                                          tensor([i for i in range(num_entities)],dtype=long,device=x.device), 
+                                                          [i for i in range(num_entities)], 
                                                           test_edge_index, test_edge_types)
         filtered_o_score_masks = o_score_masks * invalid_triple_masks
         filtered_rank_o += sum(filtered_o_score_masks)  ## Sum for each valid
