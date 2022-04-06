@@ -1,4 +1,4 @@
-from torch import Tensor, relu, cat, randn, tensor, where, zeros, ones, exp, mul, nan_to_num, \
+from torch import Tensor, long, relu, cat, randn, tensor, where, zeros, ones, exp, mul, nan_to_num, \
     block_diag
 from torch.nn import LeakyReLU, Module, ModuleList
 from torch.nn import Parameter, ParameterList
@@ -115,10 +115,10 @@ class RGCNLayer(MessagePassing):
                 out += nan_to_num(messages / expanded_divisor, nan=0.0, posinf=0.0, neginf=0.0)
             else:
                 out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type)
-        self_loop_edge_index = tensor([[i, i] for i in range(x.size(0))], dtype=int, device=x.device).T
+        self_loop_edge_index = tensor([[i, i] for i in range(x.size(0))], dtype=long, device=x.device).T
         if self.dropout:
-            self_loop_edge_index = dropout_adj(self_loop_edge_index, p=self.dropout)
-        norm = ones(x.size(0),device=x.device)
+            self_loop_edge_index, self_loop_edge_attributes = dropout_adj(self_loop_edge_index, p=self.dropout)
+        norm = ones(self_loop_edge_index.size(-1),device=x.device)
         out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None)
         out = self.activation(out)
         return out
