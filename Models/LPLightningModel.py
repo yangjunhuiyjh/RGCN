@@ -103,7 +103,7 @@ class LinkPredictionRGCN(LightningModule):
     def test_step(self, batch, batch_idx):
         results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
                              batch.test_edge_index, batch.test_edge_type)
-        for key, value in results:
+        for key, value in results.items():
             self.log("test_" + key, value)
 
     def validation_step(self, batch, batch_idx):
@@ -221,7 +221,7 @@ class LinkPredictionDistMult(LightningModule):
     def test_step(self, batch, batch_idx):
         results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
                              batch.test_edge_index, batch.test_edge_type)
-        for key, value in results:
+        for key, value in results.items():
             self.log("test_" + key, value)
 
     def validation_step(self, batch, batch_idx):
