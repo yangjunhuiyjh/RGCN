@@ -59,7 +59,7 @@ if __name__ == '__main__':
                 trial_params[param_name] = trial.suggest_categorical(param_name, values)
             model, trainer = train_ec(logger, dl, 30, num_nodes, num_relation_types,
                                       norm_type=args.norm_type, hidden_dim=args.hidden_dim,
-                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[PyTorchLightningPruningCallback(trial, monitor='val_acc'), EarlyStopping(monitor="val_loss", mode="min")],
+                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[PyTorchLightningPruningCallback(trial, monitor='validation_acc'), EarlyStopping(monitor="validation_loss", mode="min")],
                                       **trial_params)
             res = model.fin_accuracy
             return res
@@ -72,7 +72,7 @@ if __name__ == '__main__':
         for _ in range(10):
             model, trainer = train_ec(logger, dl, args.num_epoch, num_nodes, num_relation_types,
                                       norm_type=args.norm_type, hidden_dim=args.hidden_dim,
-                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[EarlyStopping(monitor="val_loss", mode="min")],
+                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[EarlyStopping(monitor="validation_loss", mode="min")],
                                       **new_params)
             results.append(trainer.test(model, dl))
         acc = 0
