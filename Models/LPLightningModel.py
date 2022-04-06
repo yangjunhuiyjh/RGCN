@@ -28,7 +28,9 @@ class LinkPredictionRGCN(LightningModule):
         super(LinkPredictionRGCN, self).__init__()
         self.num_relation_types = num_relation_types
         self.num_entities = num_entities
-        self.layers = ModuleList([RGCNLayer(hidden_dim, hidden_dim, num_relation_types, dropout=dropout_ratio, **kwargs) for _ in range(num_layers)])
+        self.layers = ModuleList(
+            [RGCNLayer(hidden_dim, hidden_dim, num_relation_types, dropout=dropout_ratio, **kwargs) for _ in
+             range(num_layers)])
         self.embedder = Linear(num_entities, hidden_dim)
         self.loss = BCELoss(reduction='sum')
         self.distmult = distMult(hidden_dim, num_relation_types)
@@ -65,7 +67,7 @@ class LinkPredictionRGCN(LightningModule):
         for i in range(0, edges.size(1), batch_size):
             batch = (
                 edges[:, i:i + batch_size], edge_type[i:i + batch_size],
-                full((min(batch_size, edges.size(1) - i), ), label))
+                full((min(batch_size, edges.size(1) - i),), label))
             batched_edges.append(batch)
         return batched_edges
 
@@ -100,16 +102,16 @@ class LinkPredictionRGCN(LightningModule):
     def test_step(self, batch, batch_idx):
         print(batch)
         results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
-                   batch.test_edge_index, batch.test_edge_type)
-        for key,value in results:
-            self.log("test_"+key,value)
+                             batch.test_edge_index, batch.test_edge_type)
+        for key, value in results:
+            self.log("test_" + key, value)
 
     def validation_step(self, batch, batch_idx):
         print(batch)
         results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
-                  batch.validation_edge_index, batch.validation_edge_type)
-        for key,value in results:
-            self.log("validation_"+key,value)
+                             batch.validation_edge_index, batch.validation_edge_type)
+        for key, value in results:
+            self.log("validation_" + key, value)
 
     def score(self, s, p, o, x):
         """

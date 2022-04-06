@@ -7,6 +7,7 @@ import optuna
 from optuna.integration.pytorch_lightning import PyTorchLightningPruningCallback
 from pytorch_lightning.callbacks import EarlyStopping
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='aifb')
@@ -53,26 +54,31 @@ if __name__ == '__main__':
             'lr': [1e-2, 1e-3, 1e-4]
         }
 
+
         def objective(trial):
             trial_params = {}
             for param_name, values in validation_params.items():
                 trial_params[param_name] = trial.suggest_categorical(param_name, values)
             model, trainer = train_ec(logger, dl, 30, num_nodes, num_relation_types,
                                       norm_type=args.norm_type, hidden_dim=args.hidden_dim,
-                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[PyTorchLightningPruningCallback(trial, monitor='validation_acc'), EarlyStopping(monitor="validation_loss", mode="min")],
+                                      out_dim=args.out_dim, num_gpus=args.num_gpus,
+                                      callbacks=[PyTorchLightningPruningCallback(trial, monitor='validation_acc'),
+                                                 EarlyStopping(monitor="validation_loss", mode="min")],
                                       **trial_params)
             res = model.fin_accuracy
             return res
 
+
         study = optuna.create_study(direction='maximize')
-        study.optimize(objective,n_trials=10)
+        study.optimize(objective, n_trials=10)
         new_params = study.best_params
         print("the best parameters are", new_params)
         results = []
         for _ in range(10):
             model, trainer = train_ec(logger, dl, args.num_epoch, num_nodes, num_relation_types,
                                       norm_type=args.norm_type, hidden_dim=args.hidden_dim,
-                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[EarlyStopping(monitor="validation_loss", mode="min")],
+                                      out_dim=args.out_dim, num_gpus=args.num_gpus,
+                                      callbacks=[EarlyStopping(monitor="validation_loss", mode="min")],
                                       **new_params)
             results.append(trainer.test(model, dl))
         acc = 0
@@ -82,33 +88,40 @@ if __name__ == '__main__':
             print(result)
             acc += result[0]['test_epoch_acc']
         acc /= len(results)
-        print("params",new_params)
+        print("params", new_params)
         print("Average accuracy for the best parameters:", acc)
     elif args.task == 'lp':
         validation_params = {
-            'hidden_dim': [100,200,400],
-            'num_blocks': [None,20,50],
-            'lr' : [1e-2, 1e-3],
-            'l2param' : [0,5e-4]
+            'hidden_dim': [100, 200, 400],
+            'num_blocks': [None, 20, 50],
+            'lr': [1e-2, 1e-3],
+            'l2param': [0, 5e-4]
         }
+
+
         def objective(trial):
             trial_params = {}
             for param_name, values in validation_params.items():
                 trial_params[param_name] = trial.suggest_categorical(param_name, values)
             model, trainer = train_lp(logger, dl, 30, num_nodes, num_relation_types,
                                       norm_type=args.norm_type, hidden_dim=args.hidden_dim,
-                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[PyTorchLightningPruningCallback(trial, monitor='validation_filtered_mrr'), EarlyStopping(monitor="validation_filtered_mrr", mode="max")],
+                                      num_gpus=args.num_gpus,
+                                      callbacks=[
+                                          PyTorchLightningPruningCallback(trial, monitor='validation_filtered_mrr'),
+                                          EarlyStopping(monitor="validation_filtered_mrr", mode="max")],
                                       **trial_params)
             res = model.fin_accuracy
             return res
 
+
         study = optuna.create_study(direction='maximize')
-        study.optimize(objective,n_trials=10)
+        study.optimize(objective, n_trials=10)
         new_params = study.best_params
         print("the best parameters are", new_params)
         results = []
         for _ in range(10):
-            model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types, norm_type=args.norm_type,
+            model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types,
+                                      norm_type=args.norm_type,
                                       num_blocks=args.num_blocks,
                                       num_gpus=args.num_gpus, model=args.model, **new_params)
             # if args.ensemble:
@@ -130,7 +143,8 @@ if __name__ == '__main__':
             hits3 += result[0]["test_hits@3"]
             hits10 += result[0]["test_hits@10"]
         len_samples = len(results)
-        print(raw_mrr/len_samples,filtered_mrr/len_samples,hits1/len_samples,hits3/len_samples,hits10/len_samples)
+        print(raw_mrr / len_samples, filtered_mrr / len_samples, hits1 / len_samples, hits3 / len_samples,
+              hits10 / len_samples)
 
     else:
         raise ValueError('invalid task!')
