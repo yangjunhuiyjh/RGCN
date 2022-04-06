@@ -114,7 +114,7 @@ if __name__ == '__main__':
             return res
 
 
-        study = optuna.create_study(direction='maximize')
+        study = optuna.create_study(direction='minimize')
         study.optimize(objective, n_trials=10)
         new_params = study.best_params
         print("the best parameters are", new_params)
