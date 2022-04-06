@@ -99,8 +99,17 @@ class LinkPredictionRGCN(LightningModule):
 
     def test_step(self, batch, batch_idx):
         print(batch)
-        self.log("Results:", test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
-                   batch.test_edge_index, batch.test_edge_type))
+        results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
+                   batch.test_edge_index, batch.test_edge_type)
+        for key,value in results:
+            self.log("test_"+key,value)
+
+    def validation_step(self, batch, batch_idx):
+        print(batch)
+        results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
+                  batch.validation_edge_index, batch.validation_edge_type)
+        for key,value in results:
+            self.log("validation_"+key,value)
 
     def score(self, s, p, o, x):
         """
@@ -108,7 +117,7 @@ class LinkPredictionRGCN(LightningModule):
         p: [batchsize,index] of relation
         o: [batchsize,index] of object
         """
-        score = self.distmult(x[s].unsqueeze(0), p.unsqueeze(0), x[o].unsqueeze(0))
+        score = self.distmult(x[s], p, x[o])
         return score
 
     def configure_optimizers(self):

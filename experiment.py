@@ -82,17 +82,55 @@ if __name__ == '__main__':
             print(result)
             acc += result[0]['test_epoch_acc']
         acc /= len(results)
+        print("params",new_params)
         print("Average accuracy for the best parameters:", acc)
     elif args.task == 'lp':
-        pass
-        # for _ in range(10):
-        #     model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types, norm_type=args.norm_type,
-        #                               num_blocks=args.num_blocks, hidden_dim=args.hidden_dim,
-        #                               lr=args.lr, num_gpus=args.num_gpus, model=args.model)
-        #     if args.ensemble:
-        #         distmult, _ = train_distmult(...)
-        #         model.make_ensemble(distmult)
+        validation_params = {
+            'hidden_dim': [100,200,400],
+            'num_blocks': [None,20,50],
+            'lr' : [1e-2, 1e-3],
+            'l2param' : [0,5e-4]
+        }
+        def objective(trial):
+            trial_params = {}
+            for param_name, values in validation_params.items():
+                trial_params[param_name] = trial.suggest_categorical(param_name, values)
+            model, trainer = train_lp(logger, dl, 30, num_nodes, num_relation_types,
+                                      norm_type=args.norm_type, hidden_dim=args.hidden_dim,
+                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[PyTorchLightningPruningCallback(trial, monitor='validation_filtered_mrr'), EarlyStopping(monitor="validation_filtered_mrr", mode="max")],
+                                      **trial_params)
+            res = model.fin_accuracy
+            return res
 
-        #     results.append(trainer.test(model, dl))
+        study = optuna.create_study(direction='maximize')
+        study.optimize(objective,n_trials=10)
+        new_params = study.best_params
+        print("the best parameters are", new_params)
+        results = []
+        for _ in range(10):
+            model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types, norm_type=args.norm_type,
+                                      num_blocks=args.num_blocks,
+                                      num_gpus=args.num_gpus, model=args.model, **new_params)
+            # if args.ensemble:
+            #     distmult, _ = train_distmult(...)
+            #     model.make_ensemble(distmult)
+
+            results.append(trainer.test(model, dl))
+        print(results)
+        raw_mrr = 0
+        filtered_mrr = 0
+        hits1 = 0
+        hits3 = 0
+        hits10 = 0
+
+        for result in results:
+            raw_mrr += result[0]['test_raw_mrr']
+            filtered_mrr += result[0]["test_filtered_mrr"]
+            hits1 += result[0]["test_hits@1"]
+            hits3 += result[0]["test_hits@3"]
+            hits10 += result[0]["test_hits@10"]
+        len_samples = len(results)
+        print(raw_mrr/len_samples,filtered_mrr/len_samples,hits1/len_samples,hits3/len_samples,hits10/len_samples)
+
     else:
         raise ValueError('invalid task!')
