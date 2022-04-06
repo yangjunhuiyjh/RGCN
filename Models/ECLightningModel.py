@@ -1,5 +1,5 @@
-from numpy import zeros
-from torch import as_tensor, norm, long
+from base64 import encode
+from torch import as_tensor, norm, long, zeros
 from torch.nn.functional import one_hot
 from pytorch_lightning import LightningModule
 from torch.nn import ModuleList, CrossEntropyLoss, Linear
@@ -42,21 +42,14 @@ class EntityClassificationRGCN(LightningModule):
         self.test_accuracy = torchmetrics.Accuracy()
         self.fin_accuracy = None
 
-    def forward(self, x, edge_index, edge_attributes, num_nodes):
-        if self.simplified:
-            x = zeros((num_nodes, self.num_relations),dtype=long, device = edge_index.device).float()
-            x = generate_feat_features(x, edge_index, edge_attributes)
-            x = self.encoder(x)
-        if x is None:  # If there are no initial features, just use a one to encode it
-            x = one_hot(as_tensor([i for i in range(num_nodes)], dtype=long, device = edge_index.device)).float()
-        for l in self.layers:
-            x = l(x, edge_index, edge_attributes)
+    def forward(self, x, edge_index, edge_types, edge_attributes, num_nodes):
+        x = self.encode(x, edge_index, edge_attributes, edge_types, num_nodes)
         return softmax(x, -1)
 
-    def encode(self, x, edge_index, edge_attributes, num_nodes):
+    def encode(self, x, edge_index, edge_attributes, edge_types, num_nodes):
         if self.simplified:
             x = zeros((num_nodes, self.num_relations),dtype=long, device = edge_index.device).float()
-            x = generate_feat_features(x, edge_index, edge_attributes)
+            x = generate_feat_features(x, edge_index, edge_types)
             x = self.encoder(x)
         if x is None:  # If there are no initial features, just use a one to encode it
             x = one_hot(as_tensor([i for i in range(num_nodes)], dtype=long, device = edge_index.device)).float()
@@ -65,9 +58,9 @@ class EntityClassificationRGCN(LightningModule):
         return x
 
     def training_step(self, batch, batch_idx):
-        x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y[:int(0.8*len(batch.train_y))]
-        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
-        self.encode(x, edge_index, edge_attributes, batch.num_nodes)
+        x, edge_index, edge_types, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y[:int(0.8*len(batch.train_y))]
+        edge_attributes = one_hot(edge_types, num_classes=self.num_relations)
+        x = self.encode(x, edge_index, edge_attributes, edge_types, batch.num_nodes)
         # CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         x = softmax(x[batch.train_idx[:int(0.8*len(batch.train_y))]], -1)
         loss = self.loss(x, y)
@@ -80,9 +73,9 @@ class EntityClassificationRGCN(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y[int(0.8*len(batch.train_y)):]
-        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
-        self.encode(x, edge_index, edge_attributes, batch.num_nodes)
+        x, edge_index, edge_types, y = batch.x, batch.edge_index, batch.edge_type, batch.train_y[int(0.8*len(batch.train_y)):]
+        edge_attributes = one_hot(edge_types, num_classes=self.num_relations)
+        x = self.encode(x, edge_index, edge_attributes, edge_types, batch.num_nodes)
         # CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         x = softmax(x[batch.train_idx[int(0.8*len(batch.train_y)):]], -1)
         loss = self.loss(x, y)
@@ -99,9 +92,9 @@ class EntityClassificationRGCN(LightningModule):
         self.log("train_epoch_acc", self.train_accuracy)
 
     def test_step(self, batch, batch_idx):
-        x, edge_index, edge_attributes, y = batch.x, batch.edge_index, batch.edge_type, batch.test_y
-        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relations)
-        self.encode(x, edge_index, edge_attributes, batch.num_nodes)
+        x, edge_index, edge_types, y = batch.x, batch.edge_index, batch.edge_type, batch.test_y
+        edge_attributes = one_hot(edge_types, num_classes=self.num_relations)
+        x = self.encode(x, edge_index, edge_attributes, edge_types, batch.num_nodes)
         # CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         x = softmax(x[batch.test_idx], -1)
         y_pred = max(x, -1, ).indices
