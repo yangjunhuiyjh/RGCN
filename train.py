@@ -52,7 +52,7 @@ def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01,
 
 
 def train_lp(logger, dl, epochs, num_entities, num_relation_types, norm_type='non-relation-degree', num_blocks=100,
-             hidden_dim=500, lr=0.01, num_gpus=0, model='rgcn', callbacks=[]): ## add kwargs
+             hidden_dim=500, lr=0.01, num_gpus=0, model='rgcn', callbacks=[], l2param = 0): ## add kwargs
     if num_gpus > 0:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
                           enable_checkpointing=False, strategy='ddp', callbacks=callbacks)
@@ -61,10 +61,10 @@ def train_lp(logger, dl, epochs, num_entities, num_relation_types, norm_type='no
                           enable_checkpointing=False, callbacks=callbacks)
     if model == 'rgcn':
         model = LinkPredictionRGCN(2, hidden_dim, num_relation_types, num_entities,
-                                   num_blocks=num_blocks, norm_type=norm_type, lr=lr)
+                                   num_blocks=num_blocks, norm_type=norm_type, lr=lr, l2lambda = l2param)
     elif model == 'distmult':
         model = LinkPredictionDistMult(hidden_dim, num_relation_types, num_entities,
-                                       num_blocks=num_blocks, lr=lr)
+                                       num_blocks=num_blocks, lr=lr, l2lambda = l2param)
     print(model)
     trainer.fit(model, dl, dl)
     return model, trainer

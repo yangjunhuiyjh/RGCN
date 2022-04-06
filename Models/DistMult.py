@@ -19,7 +19,7 @@ class distMult(torch.nn.Module):
         return:
            output: (batch_size), scores for queries
         """
-        return torch.sum(h * t * self.diag[r, :], dim=1)
+        return torch.sum(h * t * self.diag[r, :], dim=-1)
 
 
 if __name__ == '__main__':

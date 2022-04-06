@@ -104,7 +104,7 @@ if __name__ == '__main__':
             for param_name, values in validation_params.items():
                 trial_params[param_name] = trial.suggest_categorical(param_name, values)
             model, trainer = train_lp(logger, dl, 30, num_nodes, num_relation_types,
-                                      norm_type=args.norm_type, hidden_dim=args.hidden_dim,
+                                      norm_type=args.norm_type,
                                       num_gpus=args.num_gpus,
                                       callbacks=[
                                           PyTorchLightningPruningCallback(trial, monitor='validation_filtered_mrr'),

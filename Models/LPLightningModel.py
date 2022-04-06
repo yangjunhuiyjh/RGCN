@@ -67,7 +67,7 @@ class LinkPredictionRGCN(LightningModule):
         for i in range(0, edges.size(1), batch_size):
             batch = (
                 edges[:, i:i + batch_size], edge_type[i:i + batch_size],
-                full((min(batch_size, edges.size(1) - i),), label))
+                full((min(batch_size, edges.size(1) - i), ), label))
             batched_edges.append(batch)
         return batched_edges
 
@@ -100,18 +100,16 @@ class LinkPredictionRGCN(LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        print(batch)
         results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
-                             batch.test_edge_index, batch.test_edge_type)
-        for key, value in results:
-            self.log("test_" + key, value)
+                   batch.test_edge_index, batch.test_edge_type)
+        for key,value in results:
+            self.log("test_"+key,value)
 
     def validation_step(self, batch, batch_idx):
-        print(batch)
         results = test_graph(self, self.num_entities, batch.train_edge_index, batch.train_edge_type,
-                             batch.validation_edge_index, batch.validation_edge_type)
-        for key, value in results:
-            self.log("validation_" + key, value)
+                  batch.valid_edge_index, batch.valid_edge_type)
+        for key,value in results:
+            self.log("validation_"+key,value)
 
     def score(self, s, p, o, x):
         """
