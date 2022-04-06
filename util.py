@@ -1,4 +1,4 @@
-from torch import full, stack, ones_like
+from torch import full, long, stack, ones_like, tensor
 from tqdm import tqdm
 
 
@@ -56,7 +56,7 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
         s_score_masks = s_score > edge_score
         rank_s += sum(s_score_masks)
 
-        invalid_triple_masks = generate_invalid_masks_subj([i for i in range(num_entities)],
+        invalid_triple_masks = generate_invalid_masks_subj(tensor([i for i in range(num_entities)],dtype=long,device=x.device),
                                                            test_edge_types[edge].item(), 
                                                            test_edge[1].item(), 
                                                            test_edge_index, test_edge_types)
@@ -70,7 +70,7 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
 
         invalid_triple_masks = generate_invalid_masks_obj(test_edge[0].item(),
                                                           test_edge_types[edge].item(),
-                                                          [i for i in range(num_entities)], 
+                                                          tensor([i for i in range(num_entities)],dtype=long,device=x.device), 
                                                           test_edge_index, test_edge_types)
         filtered_o_score_masks = o_score_masks * invalid_triple_masks
         filtered_rank_o += sum(filtered_o_score_masks)  ## Sum for each valid
