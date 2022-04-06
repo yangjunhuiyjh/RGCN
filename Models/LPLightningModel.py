@@ -41,8 +41,8 @@ class LinkPredictionRGCN(LightningModule):
         self.num_entities = num_entities
         self.lr = lr
         self.l2lambda = l2lambda
-        self.final_loss = None
         self.save_hyperparameters()
+        self.final_loss = None
 
     def make_ensemble(self, distmult):
         self.ensemble_distmult = distmult
@@ -143,6 +143,10 @@ class LinkPredictionRGCN(LightningModule):
         o: [batchsize,index] of object
         """
         score = self.distmult(x[s], p, x[o])
+        if self.ensemble_distmult:
+            x_distmult = self.ensemble_distmult.forward()
+            distmult_score = self.ensemble_distmult(x_distmult[s], p, x_distmult[o])
+            score = self.ensemble_alpha * score + (1 - self.ensemble_alpha) * distmult_score
         return score
 
     def configure_optimizers(self):
@@ -173,8 +177,8 @@ class LinkPredictionDistMult(LightningModule):
         self.save_hyperparameters()
         self.final_loss = None
 
-    def forward(self):
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long)).float()
+    def forward(self, edge_index, edge_types):
+        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
         x = self.embedder(x)
         return x
 
@@ -193,8 +197,8 @@ class LinkPredictionDistMult(LightningModule):
         """
         edge_index = batch.train_edge_index
         edge_attributes = batch.train_edge_type
-        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types)
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long)).float()
+        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types, device=edge_index.device)
+        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
         x = self.embedder(x)
         #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         loss = 0
@@ -223,7 +227,7 @@ class LinkPredictionDistMult(LightningModule):
     def validation_step(self, batch, batch_idx):
         edge_index = batch.valid_edge_index
         edge_attributes = batch.valid_edge_type
-        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types)
+        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types, device=edge_index.device)
         x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
         x = self.embedder(x)
         for l in self.layers:
