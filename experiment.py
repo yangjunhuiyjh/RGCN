@@ -4,7 +4,8 @@ from torch_geometric.loader import DataLoader
 from pytorch_lightning.loggers import NeptuneLogger
 import argparse
 import optuna
-
+from optuna.integration.pytorch_lightning import PyTorchLightningPruningCallback
+from pytorch_lightning.callbacks import EarlyStopping
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -56,28 +57,30 @@ if __name__ == '__main__':
             trial_params = {}
             for param_name, values in validation_params.items():
                 trial_params[param_name] = trial.suggest_categorical(param_name, values)
-            model, trainer = train_ec(logger, dl, 10, num_nodes, num_relation_types,
+            model, trainer = train_ec(logger, dl, 30, num_nodes, num_relation_types,
                                       norm_type=args.norm_type, hidden_dim=args.hidden_dim,
-                                      out_dim=args.out_dim, num_gpus=args.num_gpus,
+                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[PyTorchLightningPruningCallback(trial, monitor='val_acc'), EarlyStopping(monitor="val_loss", mode="min")],
                                       **trial_params)
             res = model.fin_accuracy
             return res
 
         study = optuna.create_study(direction='maximize')
-        study.optimize(objective)
+        study.optimize(objective,n_trials=10)
         new_params = study.best_params
         print("the best parameters are", new_params)
         results = []
         for _ in range(10):
             model, trainer = train_ec(logger, dl, args.num_epoch, num_nodes, num_relation_types,
                                       norm_type=args.norm_type, hidden_dim=args.hidden_dim,
-                                      out_dim=args.out_dim, num_gpus=args.num_gpus, **new_params)
+                                      out_dim=args.out_dim, num_gpus=args.num_gpus, callbacks=[EarlyStopping(monitor="val_loss", mode="min")],
+                                      **new_params)
             results.append(trainer.test(model, dl))
         acc = 0
+        print(results)
 
         for result in results:
             print(result)
-            acc += result['test_epoch_acc']
+            acc += result[0]['test_epoch_acc']
         acc /= len(results)
         print("Average accuracy for the best parameters:", acc)
     elif args.task == 'lp':

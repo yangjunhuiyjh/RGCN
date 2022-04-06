@@ -37,13 +37,13 @@ def parse_arguments():
 
 
 def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01, norm_type='relation-degree', num_bases=30,
-             hidden_dim=16, out_dim=4, lr=0.01, num_gpus=0, simplified=False):
+             hidden_dim=16, out_dim=4, lr=0.01, num_gpus=0, simplified=False, callbacks = []):
     if num_gpus > 0:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
-                          enable_checkpointing=False, strategy='ddp')
+                          enable_checkpointing=False, strategy='ddp', callbacks=callbacks)
     else:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
-                          enable_checkpointing=False)
+                          enable_checkpointing=False, callbacks = callbacks)
     model = EntityClassificationRGCN(2, num_entities, hidden_dim, out_dim, num_relation_types, num_bases=num_bases,
                                      l2lambda=l2param, lr=lr, norm_type=norm_type, simplified=simplified)
     print(model)
@@ -52,7 +52,7 @@ def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01,
 
 
 def train_lp(logger, dl, epochs, num_entities, num_relation_types, norm_type='non-relation-degree', num_blocks=100,
-             hidden_dim=500, lr=0.01, num_gpus=0, model='rgcn'):
+             hidden_dim=500, lr=0.01, num_gpus=0, model='rgcn'): ## add kwargs
     if num_gpus > 0:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
                           enable_checkpointing=False, strategy='ddp')
