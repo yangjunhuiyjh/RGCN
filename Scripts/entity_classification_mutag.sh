@@ -8,9 +8,9 @@ python3 experiment.py \
         --task=ec \
         --num_epoch=50 \
         --num_edge_types=46 \
-        --norm_type=relation-degree \
+        --norm_type=non-relation-degree \
         --l2param=5e-4 \
-        --num_bases=30 \
+        --num_bases=20 \
         --hidden_dim=16 \
         --out_dim=2 \
         --lr=1e-2 \

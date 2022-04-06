@@ -10,3 +10,6 @@ To install a dataset run the dataloader file relating to the dataset. Thus first
 ```shell
 $ python DataLoaders/setup.py
 ```
+
+## Run experiments
+nohup bash Scripts/xxx.sh &>xxx &

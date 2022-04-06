@@ -6,7 +6,7 @@ python3 experiment.py \
         --dataset=aifb \
         --model=rgcn \
         --task=ec \
-        --num_epoch=50 \
+        --num_epoch=1 \
         --num_edge_types=90 \
         --norm_type=relation-degree \
         --l2param=5e-4 \
