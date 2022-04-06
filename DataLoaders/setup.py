@@ -74,10 +74,10 @@ def download_dataset(name: str):
 
 
 if __name__ == '__main__':
-    #download_dataset('fb15k237')
-    #download_dataset('wn18')
-    #download_dataset('fb15k')
-    #download_dataset('mutag')
-    #download_dataset('aifb')
-    #download_dataset('bgs')
+    download_dataset('fb15k237')
+    download_dataset('wn18')
+    download_dataset('fb15k')
+    download_dataset('mutag')
+    download_dataset('aifb')
+    download_dataset('bgs')
     download_dataset('am')
