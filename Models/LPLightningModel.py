@@ -89,12 +89,12 @@ class LinkPredictionRGCN(LightningModule):
             batches = self.batch_edges(edges, batch.train_edge_type, 0.0)
             for (edge, edge_attribute, label) in batches:
                 score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
-                loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+                loss += self.loss(score, label) / (edge_index.size(1) * (1 + self.omega))
         edges = edge_index
         batches = self.batch_edges(edges, batch.train_edge_type, 1.0)
         for (edge, edge_attribute, label) in batches:
             score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
-            loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+            loss += self.loss(score, label) / (edge_index.size(1) * (1 + self.omega))
         for name, param in self.distmult.named_parameters():  ## L2 Loss
             loss += norm(param) * self.l2lambda
         self.log("train_loss", loss.item())
@@ -120,12 +120,12 @@ class LinkPredictionRGCN(LightningModule):
             batches = self.batch_edges(edges, batch.valid_edge_type, 0.0)
             for (edge, edge_attribute, label) in batches:
                 score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
-                loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+                loss += self.loss(score, label) / (edge_index.size(1) * (1 + self.omega))
         edges = edge_index
         batches = self.batch_edges(edges, batch.valid_edge_type, 1.0)
         for (edge, edge_attribute, label) in batches:
             score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
-            loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+            loss += self.loss(score, label) / (edge_index.size(1) * (1 + self.omega))
         for name, param in self.distmult.named_parameters():  ## L2 Loss
             loss += norm(param) * self.l2lambda
         self.log("validation_loss", loss.item())
@@ -207,12 +207,12 @@ class LinkPredictionDistMult(LightningModule):
             batches = self.batch_edges(edges, batch.train_edge_type, 0.0)
             for (edge, edge_attribute, label) in batches:
                 score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
-                loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+                loss += self.loss(score, label) / (edge_index.size(1) * (1 + self.omega))
         edges = edge_index
         batches = self.batch_edges(edges, batch.train_edge_type, 1.0)
         for (edge, edge_attribute, label) in batches:
             score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
-            loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+            loss += self.loss(score, label) / (edge_index.size(1) * (1 + self.omega))
         for name, param in self.distmult.named_parameters():  ## L2 Loss
             loss += norm(param) * self.l2lambda
         self.log("train_loss", loss.item())
@@ -236,12 +236,12 @@ class LinkPredictionDistMult(LightningModule):
             batches = self.batch_edges(edges, batch.valid_edge_type, 0.0)
             for (edge, edge_attribute, label) in batches:
                 score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
-                loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+                loss += self.loss(score, label) / (edge_index.size(1) * (1 + self.omega))
         edges = edge_index
         batches = self.batch_edges(edges, batch.valid_edge_type, 1.0)
         for (edge, edge_attribute, label) in batches:
             score = sigmoid(self.distmult(x[edge[0]], edge_attribute, x[edge[1]]))
-            loss += self.loss(score, label) / (edge_attribute.size(0) * (1 + self.omega))
+            loss += self.loss(score, label) / (edge_index.size(1) * (1 + self.omega))
         for name, param in self.distmult.named_parameters():  ## L2 Loss
             loss += norm(param) * self.l2lambda
         self.log("validation_loss", loss.item())
