@@ -118,7 +118,7 @@ class RGCNLayer(MessagePassing):
             if self.norm_type == 'attention':
                 self.r_attention_total = zeros(self.num_entities, device=edge_index.device)
                 messages = self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type,
-                                          attention=self.attention_weights[r])
+                                          attention=self.attention_weights[r],v=ones((self.num_entities,1),device=edge_index.device))
                 expanded_divisor = self.r_attention_total.unsqueeze(-1).expand_as(out)
                 out += nan_to_num(messages / expanded_divisor, nan=0.0, posinf=0.0, neginf=0.0)
             else:
