@@ -196,8 +196,8 @@ class LinkPredictionDistMult(LightningModule):
         batch should contain train_edge_index [2,num_edges], train_edge_type [num_edges]
         """
         edge_index = batch.train_edge_index
-        edge_attributes = batch.train_edge_type
-        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types, device=edge_index.device)
+        # edge_attributes = batch.train_edge_type
+        # edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types, device=edge_index.device)
         x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
         x = self.embedder(x)
         #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
@@ -226,12 +226,10 @@ class LinkPredictionDistMult(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         edge_index = batch.valid_edge_index
-        edge_attributes = batch.valid_edge_type
-        edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types, device=edge_index.device)
+        # edge_attributes = batch.valid_edge_type
+        # edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types)
         x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
         x = self.embedder(x)
-        for l in self.layers:
-            x = l(x, edge_index, edge_attributes)
         loss = 0
         for _ in range(self.omega):
             edges = negative_sampling(edge_index, self.num_entities)
