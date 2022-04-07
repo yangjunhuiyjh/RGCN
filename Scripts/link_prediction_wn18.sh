@@ -8,9 +8,9 @@ python3 experiment.py \
         --task=lp \
         --num_epoch=50 \
         --num_edge_types=36 \
-        --norm_type=relation-degree \
+        --norm_type=non-relation-degree \
         --l2param=5e-4 \
-        --num_bases=30 \
+        --num_bases=2 \
         --hidden_dim=200 \
         --lr=1e-2 \
         --model_output_path=${save_dir} \

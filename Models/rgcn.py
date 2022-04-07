@@ -57,12 +57,8 @@ class RGCNLayer(MessagePassing):
             assert (in_channels % num_blocks == 0 and out_channels % num_blocks == 0)
             self.weights = ModuleList([BlockLinear(in_channels, out_channels, num_blocks)
                                        for _ in range(num_relation_types)])
-            self.block_dim = in_channels // num_blocks
             self.prop_type = 'block'
         elif num_bases is not None:
-            # self.basis_vectors = ModuleList([Linear(in_channels,out_channels,False) for _ in range(num_bases)])
-            # glorot(self.basis_vectors)
-            # self.weights = ParameterList([Parameter(randn(num_bases)) for _ in range(num_relations)])
             self.basis_vectors = Parameter(randn(num_bases, in_channels, out_channels))
             glorot(self.basis_vectors)
             self.weights = Parameter(randn(num_relation_types, num_bases))
@@ -87,8 +83,8 @@ class RGCNLayer(MessagePassing):
 
     def message(self, x_j, x_i, weight_r, norm, prop_type, index, attention=None):
         '''
-        x_j is of size [num_neighbours,hidden_dim]
-        norm is of size [num_neigbours]
+        x_j is of size [num_neighbours_under_r, hidden_dim]
+        norm is of size [num_neighbours_under_r]
         '''
         if attention is None:
             return norm.view(-1, 1) * self.partial_message(x_j, weight_r, prop_type)
