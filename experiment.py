@@ -115,6 +115,7 @@ if __name__ == '__main__':
                                       callbacks=[
                                           PyTorchLightningPruningCallback(trial, monitor='validation_loss'),
                                           EarlyStopping(monitor="validation_loss", mode="min")],
+                                      model=args.model
                                       **trial_params)
             res = model.final_loss
             return res
@@ -125,18 +126,20 @@ if __name__ == '__main__':
             new_params = study.best_params
             print("the best parameters are", new_params)
         else:
-            new_params = {'hidden_dim': 200, 'num_bases': 2, 'lr': 0.01, 'l2param': 0}
+            new_params = {'hidden_dim': 200, 'num_bases': 2, 'lr': 0.01, 'l2param': 0.01}
 
         results = []
         for _ in range(1):
             model, trainer = train_lp(logger, dl, 1, args.num_epoch, num_nodes, num_relation_types,
                                       norm_type=args.norm_type,
                                       num_gpus=args.num_gpus, model=args.model,
-                                      callbacks=[EarlyStopping(monitor="validation_loss", mode="min")], **new_params)
+                                      # callbacks=[EarlyStopping(monitor="validation_loss", mode="min")],
+                                      **new_params)
             # if args.ensemble:
             #     distmult, _ = train_distmult(...)
             #     model.make_ensemble(distmult)
-            model.setup_test()
+            if args.model == "rgcn":
+                model.setup_test()
             results.append(trainer.test(model, dl))
         print(results)
 
