@@ -16,7 +16,7 @@ def generate_feat_features(x,edge_index, edge_type):
     return x
 
 class EntityClassificationRGCN(LightningModule):
-    def __init__(self, num_layers, in_dim, hidden_dim, out_dim, num_relations, l2lambda=0.01, optimizer=Adam, lr=0.01,
+    def __init__(self, num_layers, in_dim, hidden_dim, out_dim, num_relations, num_entities, l2lambda=0.01, optimizer=Adam, lr=0.01,
                  simplified=False, **kwargs):
         super(EntityClassificationRGCN, self).__init__()
         self.num_relations = num_relations
@@ -25,12 +25,12 @@ class EntityClassificationRGCN(LightningModule):
         if simplified:
             self.encoder = Linear(num_relations, hidden_dim)
             self.layers = ModuleList(
-                [RGCNLayer(hidden_dim, hidden_dim, num_relations, **kwargs) for _ in range(num_layers - 1)] + [
-                    RGCNLayer(hidden_dim, out_dim, num_relations, activation=lambda x: x, **kwargs)])
+                [RGCNLayer(hidden_dim, hidden_dim, num_relations, num_entities,**kwargs) for _ in range(num_layers - 1)] + [
+                    RGCNLayer(hidden_dim, out_dim, num_relations, num_entities, activation=lambda x: x, **kwargs)])
         else:
-            self.layers = ModuleList([RGCNLayer(in_dim, hidden_dim, num_relations, **kwargs)] + [
-                RGCNLayer(hidden_dim, hidden_dim, num_relations, **kwargs) for _ in range(num_layers - 2)] + [
-                                         RGCNLayer(hidden_dim, out_dim, num_relations, activation=lambda x: x,
+            self.layers = ModuleList([RGCNLayer(in_dim, hidden_dim, num_relations, num_entities, **kwargs)] + [
+                RGCNLayer(hidden_dim, hidden_dim, num_relations, num_entities, **kwargs) for _ in range(num_layers - 2)] + [
+                                         RGCNLayer(hidden_dim, out_dim, num_relations, num_entities, activation=lambda x: x,
                                                    **kwargs)])
         self.loss = CrossEntropyLoss(reduction='sum')
         self.optimizer = optimizer
@@ -52,7 +52,8 @@ class EntityClassificationRGCN(LightningModule):
             x = generate_feat_features(x, edge_index, edge_types)
             x = self.encoder(x)
         if x is None:  # If there are no initial features, just use a one to encode it
-            x = one_hot(as_tensor([i for i in range(num_nodes)], dtype=long, device = edge_index.device)).float()
+            pass
+            # x = one_hot(as_tensor([i for i in range(num_nodes)], dtype=long, device = edge_index.device)).float()
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
         return x

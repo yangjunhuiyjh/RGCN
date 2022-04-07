@@ -29,7 +29,7 @@ class LinkPredictionRGCN(LightningModule):
         self.num_relation_types = num_relation_types
         self.num_entities = num_entities
         self.layers = ModuleList(
-            [RGCNLayer(hidden_dim, hidden_dim, num_relation_types, dropout=dropout_ratio, **kwargs) for _ in
+            [RGCNLayer(hidden_dim, hidden_dim, num_relation_types, num_entities, dropout=dropout_ratio, **kwargs) for _ in
              range(num_layers)])
         self.embedder = Linear(num_entities, hidden_dim)
         self.loss = BCELoss(reduction='sum')
@@ -43,6 +43,7 @@ class LinkPredictionRGCN(LightningModule):
         self.l2lambda = l2lambda
         self.save_hyperparameters()
         self.final_loss = None
+        self.encoding = None
 
     def make_ensemble(self, distmult):
         self.ensemble_distmult = distmult

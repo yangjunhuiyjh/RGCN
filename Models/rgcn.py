@@ -16,13 +16,16 @@ class BlockLinear(Module):
         self.weights = ParameterList(
             [Parameter(randn(in_channels // num_blocks, out_channels // num_blocks)) for _ in range(num_blocks)])
 
-    def forward(self, x):
+    def forward(self, x, index):
         weight = block_diag(*self.weights)
-        return x @ weight
+        if x is None:
+            return weight[index]
+        else:
+            return x[index] @ weight
 
 
 class RGCNLayer(MessagePassing):
-    def __init__(self, in_channels, out_channels, num_relation_types, num_blocks=None, num_bases=None,
+    def __init__(self, in_channels, out_channels, num_relation_types, num_entities, num_blocks=None, num_bases=None,
                  norm_type='relation-degree', activation=relu, dropout=None):
         """
         Arguments:
@@ -49,6 +52,7 @@ class RGCNLayer(MessagePassing):
         self.num_bases = num_bases
         self.activation = activation
         self.norm_type = norm_type
+        self.num_entities = num_entities
         if self.norm_type == 'attention':
             self.leaky_relu = LeakyReLU(0.2)
             self.attention_weights = Parameter(randn(num_relation_types, 2 * out_channels))
@@ -76,68 +80,76 @@ class RGCNLayer(MessagePassing):
         glorot(self.self_connection)
         self.dropout = dropout
 
-    def partial_message(self, x_l, weight, prop_type):
+    def partial_message(self, x, N_index, weight, prop_type):
         if prop_type == 'block':
-            return weight(x_l)
+            return weight(x, N_index)
         elif prop_type == 'basis':
-            return x_l @ (weight @ self.basis_vectors.view(self.num_bases, -1)).view(self.in_channels,
-                                                                                     self.out_channels)
+            if x is None:
+                return (weight @ self.basis_vectors.view(self.num_bases, -1)).view(self.in_channels,
+                                                                                    self.out_channels)[N_index]
+            else:                                                                   
+                return x[N_index] @ (weight @ self.basis_vectors.view(self.num_bases, -1)).view(self.in_channels,
+                                                                                    self.out_channels)
         else:
-            return x_l @ weight
+            if x is None:
+                return weight[N_index]
+            else:
+                return x[N_index] @ weight
 
-    def message(self, x_j, x_i, weight_r, norm, prop_type, index, attention=None):
+    def message(self,x, weight_r, norm, prop_type, index, edge_index_i, edge_index_j,v_i,attention=None):
         '''
         x_j is of size [num_neighbours,hidden_dim]
         norm is of size [num_neigbours]
         '''
         if attention is None:
-            return norm.view(-1, 1) * self.partial_message(x_j, weight_r, prop_type)
+            message = norm.view(-1, 1) * self.partial_message(x, edge_index_j, weight_r, prop_type)
+            return message
         else:
-            message_j = self.partial_message(x_j, weight_r, prop_type)
-            message_i = self.partial_message(x_i, weight_r, prop_type)
+            message_j = self.partial_message(x, edge_index_j, weight_r, prop_type)
+            message_i = self.partial_message(x, edge_index_i, weight_r, prop_type)
             a_ij_num = exp(self.leaky_relu(cat([message_i, message_j], dim=-1)) @ attention)
             for i, e in enumerate(index):
                 self.r_attention_total[e] += a_ij_num[i]
             return mul(norm, a_ij_num).view(-1, 1) * message_j
 
-    def forward(self, x: Tensor, edge_index, edge_attributes):
+    def forward(self, x, edge_index, edge_attributes):
         if self.dropout:
             edge_index, edge_attributes = dropout_adj(edge_index, edge_attributes, 2 * self.dropout)
-        out = zeros((x.size(0), self.out_channels),device=x.device)
+        out = zeros((self.num_entities, self.out_channels),device=edge_index.device)
         for r, e in enumerate(self.weights):
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
-            norm = self.compute_norm(edge_index, edge_attributes, r, x)
+            norm = self.compute_norm(edge_index, edge_attributes, r)
             if self.norm_type == 'attention':
-                self.r_attention_total = zeros(x.size(0), device=x.device)
+                self.r_attention_total = zeros(self.num_entities, device=edge_index.device)
                 messages = self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type,
                                           attention=self.attention_weights[r])
                 expanded_divisor = self.r_attention_total.unsqueeze(-1).expand_as(out)
                 out += nan_to_num(messages / expanded_divisor, nan=0.0, posinf=0.0, neginf=0.0)
             else:
-                out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type)
-        self_loop_edge_index = tensor([[i, i] for i in range(x.size(0))], dtype=long, device=x.device).T
+                out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type, v=ones((self.num_entities,1),device=edge_index.device))
+        self_loop_edge_index = tensor([[i, i] for i in range(self.num_entities)], dtype=long, device=edge_index.device).T
         if self.dropout:
-            self_loop_edge_index, self_loop_edge_attributes = dropout_adj(self_loop_edge_index, p=self.dropout)
-        norm = ones(self_loop_edge_index.size(-1),device=x.device)
-        out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None)
+            self_loop_edge_index, _ = dropout_adj(self_loop_edge_index, p=self.dropout)
+        norm = ones(self_loop_edge_index.size(-1),device=edge_index.device)
+        out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None, v=ones((self.num_entities,1),device=edge_index.device))
         out = self.activation(out)
         return out
 
-    def compute_norm(self, edge_index, edge_attributes, r, x):
+    def compute_norm(self, edge_index, edge_attributes, r):
         if self.norm_type == 'relation-degree':
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
             row, col = masked_edge_index
-            deg = degree(row, x.size(0))
+            deg = degree(row, self.num_entities)
             norm = nan_to_num(1 / deg[row], nan=0.0, posinf=0.0, neginf=0.0)
         elif self.norm_type == 'non-relation-degree':
             row, col = edge_index
             masked_row, _ = edge_index.T[where(edge_attributes[:, r] > 0)].T
-            deg = degree(row, x.size(0))
+            deg = degree(row, self.num_entities)
             norm = nan_to_num(1 / deg[masked_row], nan=0.0, posinf=0.0, neginf=0.0)
         elif self.norm_type == 'attention' or self.norm_type is None:
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
             row, col = masked_edge_index
-            norm = ones(x.size(0), device=edge_index.device)[row]
+            norm = ones(self.num_entities, device=edge_index.device)[row]
         else:
             raise ValueError("norm type incorrect", self.norm_type)
         return norm
@@ -148,10 +160,11 @@ if __name__ == '__main__':
     # print(RGCNConv(10,10,100,num_bases=4))
     ds = TUDataset('/tmp/MUTAG', name='MUTAG')
     print([ds[i] for i in range(4)])
-    model = RGCNLayer(7, 3, 4, num_bases=3, norm_type='attention', activation=LeakyReLU())
-    dl = DataLoader(ds, batch_size=5)
+    model = RGCNLayer(62, 3, 4, 62,num_bases=3, norm_type='relation-degree', activation=LeakyReLU())
+    dl = DataLoader(ds, batch_size=4)
     t = 0
     for data in dl:
         if t == 0:
-            print(model(data.x, data.edge_index, data.edge_attr))
+            print(data)
+            print(model(randn((62,62)), data.edge_index, data.edge_attr))
             t = 1
