@@ -42,7 +42,7 @@ def calc_hits(ranks):
     return [hits_1 / n, hits_3 / n, hits_10 / n]
 
 
-def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edge_index, test_edge_types):
+def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edge_index, test_edge_types, all_edge_index, all_edge_types):
     ranks = []
     filtered_ranks = []
     x = model.forward(train_edge_index, train_edge_types)
@@ -59,7 +59,7 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
         invalid_triple_masks = generate_invalid_masks_subj(LongTensor([i for i in range(num_entities)],device=x.device),
                                                            test_edge_types[edge].item(), 
                                                            test_edge[1].item(), 
-                                                           test_edge_index, test_edge_types)
+                                                           all_edge_index, all_edge_types)
         filtered_s_score_masks = s_score_masks * invalid_triple_masks
         filtered_rank_s += sum(filtered_s_score_masks)  ## Sum for each valid
 
@@ -71,7 +71,7 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
         invalid_triple_masks = generate_invalid_masks_obj(test_edge[0].item(),
                                                           test_edge_types[edge].item(),
                                                           LongTensor([i for i in range(num_entities)], device=x.device),
-                                                          test_edge_index, test_edge_types)
+                                                          all_edge_index, all_edge_types)
         filtered_o_score_masks = o_score_masks * invalid_triple_masks
         filtered_rank_o += sum(filtered_o_score_masks)  ## Sum for each valid
 
