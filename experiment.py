@@ -31,6 +31,8 @@ def parse_arguments():
     parser.add_argument('--num_gpus', type=int, default=0, help='number of gpus to be used')
     parser.add_argument('--ensemble', default=False, action='store_true',
                         help='use the ensemble between rgcn and distmult for link prediction')
+    parser.add_argument('--hyperparameter_tuning', default=False, action='store_true',
+                        help='hyperparameter tuning')
     return parser.parse_args()
 
 
@@ -68,11 +70,14 @@ if __name__ == '__main__':
             res = model.fin_accuracy
             return res
 
+        if args.hyperparameter_tuning:
+            study = optuna.create_study(direction='maximize')
+            study.optimize(objective, n_trials=10)
+            new_params = study.best_params
+            print("the best parameters are", new_params)
+        else:
+            new_params = {'num_bases': args.num_bases, 'l2param': args.l2param, 'lr': args.lr}
 
-        study = optuna.create_study(direction='maximize')
-        study.optimize(objective, n_trials=10)
-        new_params = study.best_params
-        print("the best parameters are", new_params)
         results = []
         for _ in range(10):
             model, trainer = train_ec(logger, dl, args.num_epoch, num_nodes, num_relation_types,
@@ -90,6 +95,7 @@ if __name__ == '__main__':
         acc /= len(results)
         print("params", new_params)
         print("Average accuracy for the best parameters:", acc)
+
     elif args.task == 'lp':
         validation_params = {
             'hidden_dim': [100, 200, 400],
@@ -103,33 +109,40 @@ if __name__ == '__main__':
             trial_params = {}
             for param_name, values in validation_params.items():
                 trial_params[param_name] = trial.suggest_categorical(param_name, values)
-            model, trainer = train_lp(logger, dl, 30, num_nodes, num_relation_types,
+            model, trainer = train_lp(logger, dl, 1, 30, num_nodes, num_relation_types,
                                       norm_type=args.norm_type,
                                       num_gpus=args.num_gpus,
                                       callbacks=[
                                           PyTorchLightningPruningCallback(trial, monitor='validation_loss'),
                                           EarlyStopping(monitor="validation_loss", mode="min")],
+                                      model=args.model
                                       **trial_params)
             res = model.final_loss
             return res
 
+        if args.hyperparameter_tuning:
+            study = optuna.create_study(direction='minimize')
+            study.optimize(objective, n_trials=10)
+            new_params = study.best_params
+            print("the best parameters are", new_params)
+        else:
+            new_params = {'hidden_dim': 200, 'num_bases': 2, 'lr': 0.01, 'l2param': 0.01}
 
-        study = optuna.create_study(direction='minimize')
-        # study.optimize(objective, n_trials=10)
-        # new_params = study.best_params
-        new_params ={'hidden_dim':200, 'num_blocks':20, 'lr':0.01, 'l2param': 0}
-        print("the best parameters are", new_params)
         results = []
         for _ in range(1):
-            model, trainer = train_lp(logger, dl, args.num_epoch, num_nodes, num_relation_types,
+            model, trainer = train_lp(logger, dl, 1, args.num_epoch, num_nodes, num_relation_types,
                                       norm_type=args.norm_type,
-                                      num_gpus=args.num_gpus, model=args.model, callbacks=[EarlyStopping(monitor="validation_loss", mode="min")],**new_params)
+                                      num_gpus=args.num_gpus, model=args.model,
+                                      # callbacks=[EarlyStopping(monitor="validation_loss", mode="min")],
+                                      **new_params)
             # if args.ensemble:
             #     distmult, _ = train_distmult(...)
             #     model.make_ensemble(distmult)
-
+            if args.model == "rgcn":
+                model.setup_test()
             results.append(trainer.test(model, dl))
         print(results)
+
         raw_mrr = 0
         filtered_mrr = 0
         hits1 = 0
