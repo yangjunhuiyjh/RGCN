@@ -1,8 +1,8 @@
-from sklearn import ensemble
-from torch import as_tensor, norm, long, full, sigmoid
+from torch import as_tensor, norm, long, full, randn, sigmoid
 from torch.nn.functional import one_hot
 from pytorch_lightning import LightningModule
-from torch.nn import ModuleList, BCELoss, Linear
+from torch.nn import ModuleList, BCELoss, Linear, Parameter
+from torch.nn.init import xavier_uniform_
 from torch.optim import Adam
 from Models.rgcn import RGCNLayer
 from Models.DistMult import distMult
@@ -31,7 +31,8 @@ class LinkPredictionRGCN(LightningModule):
         self.layers = ModuleList(
             [RGCNLayer(hidden_dim, hidden_dim, num_relation_types, num_entities, dropout=dropout_ratio, **kwargs) for _ in
              range(num_layers)])
-        self.embedder = Linear(num_entities, hidden_dim)
+        self.embedder = Parameter(randn(num_entities,hidden_dim))
+        xavier_uniform_(self.embedder)
         self.loss = BCELoss(reduction='sum')
         self.distmult = distMult(hidden_dim, num_relation_types)
         self.ensemble_alpha = ensemble_alpha
@@ -57,8 +58,7 @@ class LinkPredictionRGCN(LightningModule):
         edge_index: [2,num_edges]
         edge_types: [num_edges]
         '''
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
-        x = self.embedder(x)
+        x = self.embedder
         edge_attributes = one_hot(edge_types, num_classes=self.num_relation_types)
         for layer in self.layers:
             x = layer(x, edge_index, edge_attributes)
@@ -80,8 +80,7 @@ class LinkPredictionRGCN(LightningModule):
         edge_index = batch.train_edge_index
         edge_attributes = batch.train_edge_type
         edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types)
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
-        x = self.embedder(x)
+        x = self.embedder
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
         loss = 0
@@ -111,8 +110,7 @@ class LinkPredictionRGCN(LightningModule):
         edge_index = batch.valid_edge_index
         edge_attributes = batch.valid_edge_type
         edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types)
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
-        x = self.embedder(x)
+        x = self.embedder
         for l in self.layers:
             x = l(x, edge_index, edge_attributes)
         loss = 0
@@ -167,7 +165,8 @@ class LinkPredictionDistMult(LightningModule):
         super(LinkPredictionDistMult, self).__init__()
         self.num_relation_types = num_relation_types
         self.num_entities = num_entities
-        self.embedder = Linear(num_entities, hidden_dim)
+        self.embedder = Parameter(randn(num_entities,hidden_dim))
+        xavier_uniform_(self.embedder)
         self.loss = BCELoss(reduction='sum')
         self.distmult = distMult(hidden_dim, num_relation_types)
         self.optimizer = optimizer
@@ -179,8 +178,7 @@ class LinkPredictionDistMult(LightningModule):
         self.final_loss = None
 
     def forward(self, edge_index, edge_types):
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
-        x = self.embedder(x)
+        x = self.embedder
         return x
 
     def batch_edges(self, edges, edge_type, label, batch_size=1000):
@@ -199,8 +197,7 @@ class LinkPredictionDistMult(LightningModule):
         edge_index = batch.train_edge_index
         # edge_attributes = batch.train_edge_type
         # edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types, device=edge_index.device)
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
-        x = self.embedder(x)
+        x = self.embedder
         #### CODE UP TO HERE IS KINDA NASTY -- SHOULD WORK ON MAKING DATALOADERS MORE STANDARDISED...
         loss = 0
         for _ in range(self.omega):
@@ -229,8 +226,7 @@ class LinkPredictionDistMult(LightningModule):
         edge_index = batch.valid_edge_index
         # edge_attributes = batch.valid_edge_type
         # edge_attributes = one_hot(edge_attributes, num_classes=self.num_relation_types)
-        x = one_hot(as_tensor([i for i in range(self.num_entities)], dtype=long, device=edge_index.device)).float()
-        x = self.embedder(x)
+        x = self.embedder
         loss = 0
         for _ in range(self.omega):
             edges = negative_sampling(edge_index, self.num_entities)
