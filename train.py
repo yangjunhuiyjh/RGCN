@@ -80,8 +80,7 @@ if __name__ == '__main__':
     if args.debug:
         logger = None
     else:
-        logger = NeptuneLogger(project='dylanslavinhillier/ATML',
-                               api_key="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJjZTZiNDUxYi03ZDNiLTQ3N2EtYjQwMC0wZjA0NTJiNTgwZDQifQ==")
+        logger = None
 
     ds = get_dataset(args.dataset)
     print(len(ds), ds, type(ds))
