@@ -143,8 +143,8 @@ class LinkPredictionRGCN(LightningModule):
         """
         score = self.distmult(x[s], p, x[o])
         if self.ensemble_distmult:
-            x_distmult = self.ensemble_distmult.forward()
-            distmult_score = self.ensemble_distmult(x_distmult[s], p, x_distmult[o])
+            x_distmult = self.ensemble_distmult(None,None)
+            distmult_score = self.ensemble_distmult.score(s, p, o, x_distmult)
             score = self.ensemble_alpha * score + (1 - self.ensemble_alpha) * distmult_score
         return score
 
