@@ -99,7 +99,7 @@ if __name__ == '__main__':
     elif args.task == 'lp':
         validation_params = {
             'hidden_dim': [100, 200, 400],
-            'num_blocks': [None, 20, 50],
+             # 'num_blocks': [None, 20, 50],
             'lr': [1e-2, 1e-3],
             'l2param': [0, 5e-4]
         }
@@ -109,13 +109,13 @@ if __name__ == '__main__':
             trial_params = {}
             for param_name, values in validation_params.items():
                 trial_params[param_name] = trial.suggest_categorical(param_name, values)
-            model, trainer = train_lp(logger, dl, 1, 30, num_nodes, num_relation_types,
+            model, trainer = train_lp(logger, dl, 1, 50, num_nodes, num_relation_types,
                                       norm_type=args.norm_type,
                                       num_gpus=args.num_gpus,
                                       callbacks=[
                                           PyTorchLightningPruningCallback(trial, monitor='validation_loss'),
                                           EarlyStopping(monitor="validation_loss", mode="min")],
-                                      model=args.model
+                                      model=args.model,
                                       **trial_params)
             res = model.final_loss
             return res
@@ -126,7 +126,7 @@ if __name__ == '__main__':
             new_params = study.best_params
             print("the best parameters are", new_params)
         else:
-            new_params = {'hidden_dim': 200, 'num_bases': 2, 'lr': 0.01, 'l2param': 0.01}
+            new_params = {'num_bases': args.num_bases, 'hidden_dim': args.hidden_dim, 'lr': args.lr, 'l2param': args.l2param}
 
         results = []
         for _ in range(1):
@@ -140,6 +140,8 @@ if __name__ == '__main__':
             #     model.make_ensemble(distmult)
             if args.model == "rgcn":
                 model.setup_test()
+            print("saving model")
+            trainer.save_checkpoint(args.model_output_path)
             results.append(trainer.test(model, dl))
         print(results)
 
