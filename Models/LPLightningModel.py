@@ -46,8 +46,9 @@ class LinkPredictionRGCN(LightningModule):
         self.final_loss = None
         self.encoding = None
 
-    def make_ensemble(self, distmult):
+    def make_ensemble(self, distmult, alpha):
         self.ensemble_distmult = distmult
+        self.ensemble_alpha = alpha
 
     def setup_test(self):
         for layer in self.layers:
