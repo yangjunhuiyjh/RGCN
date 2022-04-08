@@ -54,10 +54,10 @@ def train_lp(logger, dl, num_layers, epochs, num_entities, num_relation_types, n
              hidden_dim=500, lr=0.01, num_gpus=0, model='rgcn', callbacks=[], l2param = 0, **kwargs): ## add kwargs
     if num_gpus > 0:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
-                          enable_checkpointing=False, strategy='ddp', callbacks=callbacks)
+                          enable_checkpointing=False, check_val_every_n_epoch=50, strategy='ddp', callbacks=callbacks)
     else:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
-                          enable_checkpointing=False, callbacks=callbacks)
+                          enable_checkpointing=False, check_val_every_n_epoch=50, callbacks=callbacks)
     if model == 'rgcn':
         model = LinkPredictionRGCN(num_layers, hidden_dim, num_relation_types, num_entities,
                                 norm_type=norm_type, lr=lr, l2lambda = l2param, **kwargs)
