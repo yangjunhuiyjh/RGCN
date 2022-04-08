@@ -1,3 +1,5 @@
+from pytorch_lightning import Trainer
+from Models.LPLightningModel import LinkPredictionDistMult, LinkPredictionRGCN
 from train import train_ec, train_lp
 from DataLoaders.dataloader import get_dataset
 from torch_geometric.loader import DataLoader
@@ -17,6 +19,7 @@ def parse_arguments():
     parser.add_argument('--num_edge_types', type=int, default=90)
     parser.add_argument('--norm_type', type=str, default='relation-degree',
                         help='normalisation method')
+    parser.add_argument('--ensemble_alpha', type=float, default=1.0)
     parser.add_argument('--l2param', type=float, default=0.01)
     parser.add_argument('--num_bases', type=int, default=30)
     parser.add_argument('--num_blocks', type=int, default=50)
@@ -49,7 +52,15 @@ if __name__ == '__main__':
         logger = NeptuneLogger(project='dylanslavinhillier/ATML',
                                api_key="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJjZTZiNDUxYi03ZDNiLTQ3N2EtYjQwMC0wZjA0NTJiNTgwZDQifQ==")
 
-    if args.task == 'ec':
+    if args.ensemble:
+        model = LinkPredictionRGCN.load_from_checkpoint("trained_models/lp_wn18.ckpt")
+        distmult = LinkPredictionDistMult.load_from_checkpoint("trained_models/lp_wn18_distmult.ckpt")
+        model.make_ensemble(distmult, args.ensemble_alpha)
+        model.setup_test
+        trainer = Trainer()
+        result = trainer.test(model, dl)
+        print(result)
+    elif args.task == 'ec':
         validation_params = {
             'l2param': [0, 5e-4],
             'num_bases': [None, 10, 20, 40, 80],
@@ -95,7 +106,6 @@ if __name__ == '__main__':
         acc /= len(results)
         print("params", new_params)
         print("Average accuracy for the best parameters:", acc)
-
     elif args.task == 'lp':
         validation_params = {
             'hidden_dim': [100, 200, 400],
@@ -160,6 +170,5 @@ if __name__ == '__main__':
         len_samples = len(results)
         print(raw_mrr / len_samples, filtered_mrr / len_samples, hits1 / len_samples, hits3 / len_samples,
               hits10 / len_samples)
-
     else:
         raise ValueError('invalid task!')
