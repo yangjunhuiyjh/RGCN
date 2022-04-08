@@ -1,3 +1,4 @@
+from re import A
 from torch import Tensor, long, relu, cat, randn, tensor, where, zeros, ones, exp, mul, nan_to_num, \
     block_diag
 from torch.nn import LeakyReLU, Module, ModuleList
@@ -7,7 +8,7 @@ from torch_geometric.utils import degree
 from torch_geometric.datasets import TUDataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn.inits import glorot
-from torch_geometric.utils import dropout_adj
+from torch_geometric.utils import dropout_adj, softmax
 
 
 class BlockLinear(Module):
@@ -56,7 +57,6 @@ class RGCNLayer(MessagePassing):
         if self.norm_type == 'attention':
             self.leaky_relu = LeakyReLU(0.2)
             self.attention_weights = Parameter(randn(num_relation_types, 2 * out_channels))
-            glorot(self.attention_weights)
         if num_blocks is not None:
             assert (in_channels % num_blocks == 0 and out_channels % num_blocks == 0)
             self.weights = ModuleList([BlockLinear(in_channels, out_channels, num_blocks)
@@ -103,10 +103,9 @@ class RGCNLayer(MessagePassing):
         else:
             message_j = self.partial_message(x, edge_index_j, weight_r, prop_type)
             message_i = self.partial_message(x, edge_index_i, weight_r, prop_type)
-            a_ij_num = exp(self.leaky_relu(cat([message_i, message_j], dim=-1)) @ attention)
-            for i, e in enumerate(index):
-                self.r_attention_total[e] += a_ij_num[i]
-            return mul(norm, a_ij_num).view(-1, 1) * message_j
+            alpha = exp(self.leaky_relu(cat([message_i, message_j], dim=-1)) @ attention)
+            alpha = softmax(alpha, index, num_nodes=self.num_entities)
+            return mul(norm, alpha).view(-1, 1) * message_j
 
     def forward(self, x, edge_index, edge_attributes):
         if self.dropout:
@@ -116,11 +115,8 @@ class RGCNLayer(MessagePassing):
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
             norm = self.compute_norm(edge_index, edge_attributes, r)
             if self.norm_type == 'attention':
-                self.r_attention_total = zeros(self.num_entities, device=edge_index.device)
-                messages = self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type,
+                out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type,
                                           attention=self.attention_weights[r],v=ones((self.num_entities,1),device=edge_index.device))
-                expanded_divisor = self.r_attention_total.unsqueeze(-1).expand_as(out)
-                out += nan_to_num(messages / expanded_divisor, nan=0.0, posinf=0.0, neginf=0.0)
             else:
                 out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type, v=ones((self.num_entities,1),device=edge_index.device))
         self_loop_edge_index = tensor([[i, i] for i in range(self.num_entities)], dtype=long, device=edge_index.device).T
@@ -156,7 +152,7 @@ if __name__ == '__main__':
     # print(RGCNConv(10,10,100,num_bases=4))
     ds = TUDataset('/tmp/MUTAG', name='MUTAG')
     print([ds[i] for i in range(4)])
-    model = RGCNLayer(62, 3, 4, 62,num_bases=3, norm_type='relation-degree', activation=LeakyReLU())
+    model = RGCNLayer(62, 3, 4, 62,num_bases=3, norm_type='attention', activation=LeakyReLU())
     dl = DataLoader(ds, batch_size=4)
     t = 0
     for data in dl:
