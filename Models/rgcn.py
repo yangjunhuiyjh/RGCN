@@ -129,10 +129,11 @@ class RGCNLayer(MessagePassing):
         if self.dropout:
             self_loop_edge_index, _ = dropout_adj(self_loop_edge_index, p=self.dropout)
         norm = ones(self_loop_edge_index.size(-1),device=edge_index.device)
+        
+        out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None, v=ones((self.num_entities,1),device=edge_index.device))
         if self.bias is not False:
             bias = self.bias
-        out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None, v=ones((self.num_entities,1),device=edge_index.device))
-        out += bias
+            out += bias
         out = self.activation(out)
         return out
 
