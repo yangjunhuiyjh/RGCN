@@ -27,7 +27,7 @@ class BlockLinear(Module):
 
 class RGCNLayer(MessagePassing):
     def __init__(self, in_channels, out_channels, num_relation_types, num_entities, num_blocks=None, num_bases=None,
-                 norm_type='relation-degree', activation=relu, dropout=None):
+                 norm_type='relation-degree', activation=relu, dropout=None, bias=False):
         """
         Arguments:
             in_channels: dimension of input node feature space
@@ -72,37 +72,43 @@ class RGCNLayer(MessagePassing):
                 [Parameter(randn(in_channels, out_channels)) for _ in range(num_relation_types)])
             self.prop_type = None
         self.self_connection = Parameter(randn(in_channels, out_channels))
+        self.bias = bias
+        if bias:
+            self.bias = Parameter(randn(self.num_relation_types,out_channels))
         glorot(self.weights)
         glorot(self.self_connection)
         self.dropout = dropout
 
-    def partial_message(self, x, N_index, weight, prop_type):
+    def partial_message(self, x, N_index, weight, prop_type, bias):
         if prop_type == 'block':
-            return weight(x, N_index)
+            message= weight(x, N_index)
         elif prop_type == 'basis':
             if x is None:
-                return (weight @ self.basis_vectors.view(self.num_bases, -1)).view(self.in_channels,
+                message= (weight @ self.basis_vectors.view(self.num_bases, -1)).view(self.in_channels,
                                                                                     self.out_channels)[N_index]
             else:                                                                   
-                return x[N_index] @ (weight @ self.basis_vectors.view(self.num_bases, -1)).view(self.in_channels,
+                message= x[N_index] @ (weight @ self.basis_vectors.view(self.num_bases, -1)).view(self.in_channels,
                                                                                     self.out_channels)
         else:
             if x is None:
-                return weight[N_index]
+                message= weight[N_index]
             else:
-                return x[N_index] @ weight
+                message= x[N_index] @ weight
+        if bias is not False:
+            message= message + bias
+        return message
 
-    def message(self,x, weight_r, norm, prop_type, index, edge_index_i, edge_index_j,v_i,attention=None):
+    def message(self,x, weight_r, norm, prop_type, index, edge_index_i, edge_index_j,v_i,attention=None, bias=False):
         '''
         x_j is of size [num_neighbours_under_r, hidden_dim]
         norm is of size [num_neighbours_under_r]
         '''
         if attention is None:
-            message = norm.view(-1, 1) * self.partial_message(x, edge_index_j, weight_r, prop_type)
+            message = norm.view(-1, 1) * self.partial_message(x, edge_index_j, weight_r, prop_type, bias)
             return message
         else:
-            message_j = self.partial_message(x, edge_index_j, weight_r, prop_type)
-            message_i = self.partial_message(x, edge_index_i, weight_r, prop_type)
+            message_j = self.partial_message(x, edge_index_j, weight_r, prop_type, bias)
+            message_i = self.partial_message(x, edge_index_i, weight_r, prop_type, bias)
             alpha = exp(self.leaky_relu(cat([message_i, message_j], dim=-1)) @ attention)
             alpha = softmax(alpha, index, num_nodes=self.num_entities)
             return mul(norm, alpha).view(-1, 1) * message_j
@@ -114,16 +120,22 @@ class RGCNLayer(MessagePassing):
         for r, e in enumerate(self.weights):
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
             norm = self.compute_norm(edge_index, edge_attributes, r)
+            bias = None
+            if self.bias is not False:
+                bias = self.bias[r]
             if self.norm_type == 'attention':
                 out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type,
-                                          attention=self.attention_weights[r],v=ones((self.num_entities,1),device=edge_index.device))
+                                          attention=self.attention_weights[r],v=ones((self.num_entities,1),device=edge_index.device), bias = bias)
             else:
-                out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type, v=ones((self.num_entities,1),device=edge_index.device))
+                out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type, v=ones((self.num_entities,1),device=edge_index.device), bias = bias)
         self_loop_edge_index = tensor([[i, i] for i in range(self.num_entities)], dtype=long, device=edge_index.device).T
         if self.dropout:
             self_loop_edge_index, _ = dropout_adj(self_loop_edge_index, p=self.dropout)
         norm = ones(self_loop_edge_index.size(-1),device=edge_index.device)
-        out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None, v=ones((self.num_entities,1),device=edge_index.device))
+        bias = None
+        if self.bias is not False:
+            bias = self.bias[-1]
+        out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None, v=ones((self.num_entities,1),device=edge_index.device), bias = bias)
         out = self.activation(out)
         return out
 
@@ -152,7 +164,7 @@ if __name__ == '__main__':
     # print(RGCNConv(10,10,100,num_bases=4))
     ds = TUDataset('/tmp/MUTAG', name='MUTAG')
     print([ds[i] for i in range(4)])
-    model = RGCNLayer(62, 3, 4, 62,num_bases=3, norm_type='attention', activation=LeakyReLU())
+    model = RGCNLayer(62, 3, 4, 62,num_bases=3, norm_type='attention', activation=LeakyReLU(), bias=True)
     dl = DataLoader(ds, batch_size=4)
     t = 0
     for data in dl:
