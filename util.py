@@ -1,11 +1,11 @@
-from torch import full, ones_like, LongTensor
+from torch import full, ones_like, LongTensor, tensor
 from tqdm import tqdm
 
 
 def generate_invalid_masks_subj(subjects, relation, object, edge_index, edge_types):
     valid_edges = edge_index.T[(edge_types.eq(relation) * edge_index[1, :].eq(object))].T ## outputs the valid edges
     valid_subjects = valid_edges[0]
-    mask = ones_like(subjects)
+    mask = ones_like(subjects, device=edge_index.device)
     mask[valid_subjects] = 0
     return mask
 
@@ -13,7 +13,7 @@ def generate_invalid_masks_subj(subjects, relation, object, edge_index, edge_typ
 def generate_invalid_masks_obj(subject, relation, objects, edge_index, edge_types):
     valid_edges = edge_index.T[(edge_types.eq(relation) * edge_index[0, :].eq(subject))].T
     valid_objects = valid_edges[1]
-    mask = ones_like(objects)
+    mask = ones_like(objects, device=edge_index.device)
     mask[valid_objects] = 0
     return mask
 
@@ -56,7 +56,7 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
         s_score_masks = s_score > edge_score
         rank_s += sum(s_score_masks)
 
-        invalid_triple_masks = generate_invalid_masks_subj(LongTensor([i for i in range(num_entities)],device=x.device),
+        invalid_triple_masks = generate_invalid_masks_subj(tensor([i for i in range(num_entities)],device=x.device),
                                                            test_edge_types[edge].item(), 
                                                            test_edge[1].item(), 
                                                            all_edge_index, all_edge_types)
@@ -70,7 +70,7 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
 
         invalid_triple_masks = generate_invalid_masks_obj(test_edge[0].item(),
                                                           test_edge_types[edge].item(),
-                                                          LongTensor([i for i in range(num_entities)], device=x.device),
+                                                          tensor([i for i in range(num_entities)], device=x.device),
                                                           all_edge_index, all_edge_types)
         filtered_o_score_masks = o_score_masks * invalid_triple_masks
         filtered_rank_o += sum(filtered_o_score_masks)  ## Sum for each valid
