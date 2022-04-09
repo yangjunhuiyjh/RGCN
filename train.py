@@ -36,7 +36,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01, norm_type='relation-degree', num_bases=30,
+def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01, norm_type='relation-degree',
              hidden_dim=16, out_dim=4, lr=0.01, num_gpus=0, simplified=False, callbacks=[], **kwargs):
     if num_gpus > 0:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
@@ -44,8 +44,8 @@ def train_ec(logger, dl, epochs, num_entities, num_relation_types, l2param=0.01,
     else:
         trainer = Trainer(logger=logger, log_every_n_steps=1, max_epochs=epochs, gpus=num_gpus,
                           enable_checkpointing=False, callbacks=callbacks)
-    model = EntityClassificationRGCN(2, num_entities, hidden_dim, out_dim, num_relation_types, num_entities=num_entities, num_bases=num_bases,
-                                     l2lambda=l2param, lr=lr, norm_type=norm_type, simplified=simplified)
+    model = EntityClassificationRGCN(2, num_entities, hidden_dim, out_dim, num_relation_types, num_entities=num_entities,
+                                     l2lambda=l2param, lr=lr, norm_type=norm_type, simplified=simplified, **kwargs)
     trainer.fit(model, dl, dl)
     return model, trainer
 
