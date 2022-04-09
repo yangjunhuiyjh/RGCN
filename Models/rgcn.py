@@ -9,6 +9,7 @@ from torch_geometric.datasets import TUDataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn.inits import glorot
 from torch_geometric.utils import dropout_adj, softmax
+from torch_geometric.nn.inits import uniform
 
 
 class BlockLinear(Module):
@@ -74,12 +75,13 @@ class RGCNLayer(MessagePassing):
         self.self_connection = Parameter(randn(in_channels, out_channels))
         self.bias = bias
         if bias:
-            self.bias = Parameter(randn(self.num_relation_types,out_channels))
+            self.bias = Parameter(zeros(out_channels))
+            # uniform(out_channels,bias)
         glorot(self.weights)
         glorot(self.self_connection)
         self.dropout = dropout
 
-    def partial_message(self, x, N_index, weight, prop_type, bias):
+    def partial_message(self, x, N_index, weight, prop_type):
         if prop_type == 'block':
             message= weight(x, N_index)
         elif prop_type == 'basis':
@@ -94,21 +96,19 @@ class RGCNLayer(MessagePassing):
                 message= weight[N_index]
             else:
                 message= x[N_index] @ weight
-        if bias is not False:
-            message= message + bias
         return message
 
-    def message(self,x, weight_r, norm, prop_type, index, edge_index_i, edge_index_j,v_i,attention=None, bias=False):
+    def message(self,x, weight_r, norm, prop_type, index, edge_index_i, edge_index_j,v_i,attention=None):
         '''
         x_j is of size [num_neighbours_under_r, hidden_dim]
         norm is of size [num_neighbours_under_r]
         '''
         if attention is None:
-            message = norm.view(-1, 1) * self.partial_message(x, edge_index_j, weight_r, prop_type, bias)
+            message = norm.view(-1, 1) * self.partial_message(x, edge_index_j, weight_r, prop_type)
             return message
         else:
-            message_j = self.partial_message(x, edge_index_j, weight_r, prop_type, bias)
-            message_i = self.partial_message(x, edge_index_i, weight_r, prop_type, bias)
+            message_j = self.partial_message(x, edge_index_j, weight_r, prop_type)
+            message_i = self.partial_message(x, edge_index_i, weight_r, prop_type)
             alpha = exp(self.leaky_relu(cat([message_i, message_j], dim=-1)) @ attention)
             alpha = softmax(alpha, index, num_nodes=self.num_entities)
             return mul(norm, alpha).view(-1, 1) * message_j
@@ -120,22 +120,19 @@ class RGCNLayer(MessagePassing):
         for r, e in enumerate(self.weights):
             masked_edge_index = edge_index.T[where(edge_attributes[:, r] > 0)].T
             norm = self.compute_norm(edge_index, edge_attributes, r)
-            bias = None
-            if self.bias is not False:
-                bias = self.bias[r]
             if self.norm_type == 'attention':
                 out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type,
-                                          attention=self.attention_weights[r],v=ones((self.num_entities,1),device=edge_index.device), bias = bias)
+                                          attention=self.attention_weights[r],v=ones((self.num_entities,1),device=edge_index.device))
             else:
-                out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type, v=ones((self.num_entities,1),device=edge_index.device), bias = bias)
+                out += self.propagate(masked_edge_index, x=x, weight_r=e, norm=norm, prop_type=self.prop_type, v=ones((self.num_entities,1),device=edge_index.device))
         self_loop_edge_index = tensor([[i, i] for i in range(self.num_entities)], dtype=long, device=edge_index.device).T
         if self.dropout:
             self_loop_edge_index, _ = dropout_adj(self_loop_edge_index, p=self.dropout)
         norm = ones(self_loop_edge_index.size(-1),device=edge_index.device)
-        bias = None
         if self.bias is not False:
-            bias = self.bias[-1]
-        out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None, v=ones((self.num_entities,1),device=edge_index.device), bias = bias)
+            bias = self.bias
+        out += self.propagate(self_loop_edge_index, x=x, weight_r=self.self_connection, norm=norm, prop_type=None, v=ones((self.num_entities,1),device=edge_index.device))
+        out += bias
         out = self.activation(out)
         return out
 
