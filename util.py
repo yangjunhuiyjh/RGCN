@@ -1,4 +1,3 @@
-import enum
 from torch import full, long, ones_like, LongTensor, tensor
 from tqdm import tqdm
 from torch_geometric import utils
@@ -49,7 +48,8 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
     filtered_ranks = []
     avg_degree = []
     x = model.forward(train_edge_index, train_edge_types)
-    node_degree = utils.degree(all_edge_index,num_entities,long)
+    if by_degree:
+        node_degree = utils.degree(all_edge_index[0],num_entities,long)
     for edge in tqdm(range(test_edge_index.size(1))):
         test_edge = test_edge_index[:, edge]
         edge_score = model.score(test_edge[0], test_edge_types[edge], test_edge[1], x).squeeze().item()
@@ -83,20 +83,24 @@ def test_graph(model, num_entities, train_edge_index, train_edge_types, test_edg
         ranks.append(rank_s)
         filtered_ranks.append(filtered_rank_o)
         filtered_ranks.append(filtered_rank_s)
-        avg_degree.append((node_degree[test_edge[0].item]+node_degree[test_edge[1].item])/2)
+        if by_degree:
+            avg_degree.append((node_degree[test_edge[0].item()]+node_degree[test_edge[1].item()])/2)
     if by_degree:
         max_deg = max(avg_degree).item()
-        bins = [(lambda x: x>max_deg//10*i and x<max_deg//10*(i+1),[]) for i in range(10)]
-        bin_scores = []
+        bins = [((max_deg//10)*i,(max_deg//10)*(i+1),[]) for i in range(10)]
+        
         for i,e in enumerate(avg_degree):
             for bin in bins:
-                if bin[0](e):
-                    bin[1].append(filtered_ranks[2*i])
-                    bin[1].append(filtered_ranks[2*i+1])
-            for bin in bins:
-                mrr = calc_mrr(bin[1])
-                bin_scores.append((bin[0],mrr))
-        return bin_scores
+                if bin[0]<e and bin[1]>e:
+                    bin[2].append(filtered_ranks[2*i])
+                    bin[2].append(filtered_ranks[2*i+1])
+        for bin in bins:
+            if len(bin[2])>0:
+                mrr = calc_mrr(bin[2])
+                print(bin[1],mrr, len(bin[2]))
+            else:
+                print(bin[0],"empty")
+                
     hits_1, hits_3, hits_10 = calc_hits(filtered_ranks)
     results = {
         'raw_mrr': calc_mrr(ranks),

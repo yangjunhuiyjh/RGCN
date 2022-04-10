@@ -3,7 +3,7 @@ from Models.LPLightningModel import LinkPredictionDistMult, LinkPredictionRGCN
 from train import train_ec, train_lp
 from DataLoaders.dataloader import get_dataset
 from torch_geometric.loader import DataLoader
-from pytorch_lightning.loggers import NeptuneLogger
+from pytorch_lightning.loggers import TensorBoardLogger
 import argparse
 import optuna
 from optuna.integration.pytorch_lightning import PyTorchLightningPruningCallback
@@ -36,6 +36,7 @@ def parse_arguments():
                         help='use the ensemble between rgcn and distmult for link prediction')
     parser.add_argument('--hyperparameter_tuning', default=False, action='store_true',
                         help='hyperparameter tuning')
+    parser.add_argument('--bias', default=False, action='store_true', help='use bias?')
     return parser.parse_args()
 
 
@@ -49,24 +50,23 @@ if __name__ == '__main__':
     if args.debug:
         logger = None
     else:
-        logger = NeptuneLogger(project='dylanslavinhillier/ATML',
-                               api_key="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJjZTZiNDUxYi03ZDNiLTQ3N2EtYjQwMC0wZjA0NTJiNTgwZDQifQ==")
+        logger = TensorBoardLogger('Logs/')
 
     if args.ensemble:
         model = LinkPredictionRGCN.load_from_checkpoint("trained_models/lp_wn18.ckpt")
-        distmult = LinkPredictionDistMult.load_from_checkpoint("trained_models/lp_wn18_distmult.ckpt")
-        model.make_ensemble(distmult, args.ensemble_alpha)
         model.setup_test
         trainer = Trainer()
-        result = trainer.test(model, dl)
-        print(result)
+        trainer.test(model,dl) ## comment out if results already present
+        distmult = LinkPredictionDistMult.load_from_checkpoint("trained_models/lp_wn18_distmult.ckpt")
+        trainer.test(distmult,dl) ## comment out if results already present
+        model.make_ensemble(distmult, args.ensemble_alpha)
+        trainer.test(model, dl)
     elif args.task == 'ec':
         validation_params = {
             'l2param': [0, 5e-4],
             'num_bases': [None, 10, 20, 40, 80],
             'lr': [1e-2, 1e-3, 1e-4]
         }
-
 
         def objective(trial):
             trial_params = {}
@@ -76,7 +76,7 @@ if __name__ == '__main__':
                                       norm_type=args.norm_type, hidden_dim=args.hidden_dim,
                                       out_dim=args.out_dim, num_gpus=args.num_gpus,
                                       callbacks=[PyTorchLightningPruningCallback(trial, monitor='validation_acc'),
-                                                 EarlyStopping(monitor="validation_loss", mode="min")],
+                                                 EarlyStopping(monitor="validation_loss", mode="min")], bias = args.bias,
                                       **trial_params)
             res = model.fin_accuracy
             return res
@@ -94,7 +94,7 @@ if __name__ == '__main__':
             model, trainer = train_ec(logger, dl, args.num_epoch, num_nodes, num_relation_types,
                                       norm_type=args.norm_type, hidden_dim=args.hidden_dim,
                                       out_dim=args.out_dim, num_gpus=args.num_gpus,
-                                      callbacks=[EarlyStopping(monitor="validation_loss", mode="min")],
+                                      callbacks=[],
                                       **new_params)
             results.append(trainer.test(model, dl))
         acc = 0
@@ -125,7 +125,7 @@ if __name__ == '__main__':
                                       callbacks=[
                                           PyTorchLightningPruningCallback(trial, monitor='validation_loss'),
                                           EarlyStopping(monitor="validation_loss", mode="min")],
-                                      model=args.model,
+                                      model=args.model, bias=args.bias,
                                       **trial_params)
             res = model.final_loss
             return res
@@ -142,8 +142,7 @@ if __name__ == '__main__':
         for _ in range(1):
             model, trainer = train_lp(logger, dl, 1, args.num_epoch, num_nodes, num_relation_types,
                                       norm_type=args.norm_type,
-                                      num_gpus=args.num_gpus, model=args.model,
-                                      # callbacks=[EarlyStopping(monitor="validation_loss", mode="min")],
+                                      num_gpus=args.num_gpus, model=args.model, bias = args.bias,
                                       **new_params)
             # if args.ensemble:
             #     distmult, _ = train_distmult(...)
