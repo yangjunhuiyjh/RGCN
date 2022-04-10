@@ -6,11 +6,12 @@ from pyrdf2vec import RDF2VecTransformer
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
+from tqdm import tqdm
 import pandas as pd
 
 
 if __name__ == '__main__':
-    graph = Entities("../Datasets", "AIFB")[0]
+    graph = Entities("../Datasets", "BGS")[0]
 
     train_entities = [str(entity.item()) for entity in graph.train_idx]
     train_labels = [str(label.item()) for label in graph.train_y]
@@ -20,27 +21,26 @@ if __name__ == '__main__':
     entities = train_entities + test_entities
     labels = train_labels + test_labels
 
-    print(entities)
-
+    print("Creating the knowledge graph...")
     knowledge_graph = KG()
-    for r in range(graph.edge_index.size()[-1]):
+    for r in tqdm(range(graph.edge_index.size()[-1])):
         edge = graph.edge_index[:, r]
         subj = Vertex(str(edge[0].item()))
         obj = Vertex(str(edge[1].item()))
         pred = Vertex(str(graph.edge_type[r].item()), predicate=True, vprev=subj, vnext=obj)
         knowledge_graph.add_walk(subj, pred, obj)
 
+    print("Training Word2Vec...")
     transformer = RDF2VecTransformer(
         Word2Vec(epochs=10),
-        walkers=[RandomWalker(4, 10, with_reverse=True, n_jobs=2)],
+        walkers=[RandomWalker(2, 5, with_reverse=False, n_jobs=2)],
         verbose=1
     )
 
     embeddings, literals = transformer.fit_transform(knowledge_graph, entities)
-    print(literals)
 
-    train_embeddings = embeddings[: len(train_entities)]
-    test_embeddings = embeddings[len(train_entities) :]
+    train_embeddings = embeddings[:len(train_entities)]
+    test_embeddings = embeddings[len(train_entities):]
 
     # Fit a Support Vector Machine on train embeddings and pick the best
     # C-parameters (regularization strength).
