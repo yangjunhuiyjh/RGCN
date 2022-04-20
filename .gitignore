@@ -128,8 +128,16 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# IDE
 .idea/
+.vscode/
+/data/
 
-# Custom
-Datasets/*/*/
+*.pkl
+*.png
+*.json
+
+*.pt
+train.txt
+test.txt
+valid.txt
+*.orig
